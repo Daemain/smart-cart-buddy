@@ -76,7 +76,7 @@ const Index = () => {
               <div className="bg-primary rounded-full p-1 text-primary-foreground">
                 <ShoppingCart className="h-4 w-4" />
               </div>
-              <h1 className="font-bold text-xs">Smart Cart Buddy</h1>
+              <h1 className="font-bold text-sm">Smart Cart Buddy</h1>
             </div>
             <div className="flex items-center gap-2">
               <AddGroceryForm addGroceryItem={addGroceryItem} />
