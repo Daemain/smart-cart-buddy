@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
+import { Loader2 } from 'lucide-react';
 
 const Index = () => {
   const {
@@ -37,7 +38,8 @@ const Index = () => {
     suggestedItems,
     saveRecipe,
     recipes,
-    addRecipeToList
+    addRecipeToList,
+    isLoading
   } = useGroceryList();
 
   const { user, profile, signOut } = useAuth();
@@ -64,12 +66,16 @@ const Index = () => {
 
   const handleRecipeExtracted = (ingredients: { name: string; quantity: string }[], recipeName: string) => {
     // Save the recipe first
-    const newRecipe = saveRecipe(recipeName, ingredients);
-    
-    // Then add all ingredients to the grocery list with a reference to the recipe
-    ingredients.forEach(ingredient => {
-      addGroceryItem(ingredient.name, ingredient.quantity || '1', undefined, newRecipe.id);
-    });
+    saveRecipe(recipeName, ingredients)
+      .then(newRecipe => {
+        // Then add all ingredients to the grocery list with a reference to the recipe
+        ingredients.forEach(ingredient => {
+          addGroceryItem(ingredient.name, ingredient.quantity || '1', undefined, newRecipe.id);
+        });
+      })
+      .catch(error => {
+        console.error('Failed to save recipe:', error);
+      });
   };
 
   return (
@@ -128,55 +134,64 @@ const Index = () => {
           />
         )}
         
-        {activeCategory === 'suggested' && (
+        {isLoading ? (
+          <div className="flex justify-center items-center h-40">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2 text-muted-foreground">Loading your grocery list...</span>
+          </div>
+        ) : (
           <>
-            {isPremium ? (
-              <SuggestedItems 
-                items={suggestedItems || []} 
-                reuseItem={reuseItem} 
-              />
-            ) : (
-              <div className="mt-6 mb-4">
-                <EmptyState 
-                  category="suggested" 
-                  isPremium={false} 
-                  onUpgrade={() => setIsPremium(true)}
-                />
-              </div>
-            )}
-          </>
-        )}
-        
-        {(activeCategory !== 'suggested' || isPremium) && (
-          <>
-            <div className="flex justify-start my-3">
-              <RecipeExtractor 
-                onExtractComplete={handleRecipeExtracted} 
-                isPremium={isPremium} 
-              />
-            </div>
-            
-            <RecipeFolder 
-              recipes={recipes}
-              onAddToList={addRecipeToList}
-            />
-            
-            <div className="space-y-2 mt-1">
-              {groceries.length === 0 ? (
-                <EmptyState category={activeCategory} isPremium={isPremium} />
-              ) : (
-                groceries.map(item => (
-                  <GroceryItem
-                    key={item.id}
-                    item={item}
-                    toggleCompletion={toggleCompletion}
-                    toggleFrequent={toggleFrequent}
-                    deleteItem={deleteItem}
-                    reuseItem={activeCategory === 'frequent' ? reuseItem : undefined}
+            {activeCategory === 'suggested' && (
+              <>
+                {isPremium ? (
+                  <SuggestedItems 
+                    items={suggestedItems || []} 
+                    reuseItem={reuseItem} 
                   />
-                ))
-              )}
-            </div>
+                ) : (
+                  <div className="mt-6 mb-4">
+                    <EmptyState 
+                      category="suggested" 
+                      isPremium={false} 
+                      onUpgrade={() => setIsPremium(true)}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+            
+            {(activeCategory !== 'suggested' || isPremium) && (
+              <>
+                <div className="flex justify-start my-3">
+                  <RecipeExtractor 
+                    onExtractComplete={handleRecipeExtracted} 
+                    isPremium={isPremium} 
+                  />
+                </div>
+                
+                <RecipeFolder 
+                  recipes={recipes}
+                  onAddToList={addRecipeToList}
+                />
+                
+                <div className="space-y-2 mt-1">
+                  {groceries.length === 0 ? (
+                    <EmptyState category={activeCategory} isPremium={isPremium} />
+                  ) : (
+                    groceries.map(item => (
+                      <GroceryItem
+                        key={item.id}
+                        item={item}
+                        toggleCompletion={toggleCompletion}
+                        toggleFrequent={toggleFrequent}
+                        deleteItem={deleteItem}
+                        reuseItem={activeCategory === 'frequent' ? reuseItem : undefined}
+                      />
+                    ))
+                  )}
+                </div>
+              </>
+            )}
           </>
         )}
       </main>

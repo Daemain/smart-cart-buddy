@@ -3,7 +3,6 @@ import { useState, useEffect, useMemo } from 'react';
 import { GroceryItem, GroceryList, GroceryCategory, Recipe } from '@/types/grocery';
 import { 
   loadGroceries, 
-  saveGroceries, 
   addGroceryItem as addItem,
   updateGroceryItem,
   deleteGroceryItem,
@@ -13,20 +12,46 @@ import {
   saveRecipe as saveRecipeToStorage,
 } from '@/services/groceryService';
 import { toast } from '@/components/ui/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 
 export const useGroceryList = () => {
   const [groceries, setGroceries] = useState<GroceryList>([]);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [activeCategory, setActiveCategory] = useState<GroceryCategory>('all');
+  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
   
-  // Load groceries and recipes from localStorage on component mount
+  // Load groceries and recipes from Supabase when component mounts or user changes
   useEffect(() => {
-    const items = loadGroceries();
-    setGroceries(items);
+    const fetchData = async () => {
+      if (user) {
+        setIsLoading(true);
+        try {
+          const items = await loadGroceries();
+          setGroceries(items);
+          
+          const savedRecipes = await loadRecipes();
+          setRecipes(savedRecipes);
+        } catch (error) {
+          console.error('Error fetching data:', error);
+          toast({
+            title: "Error",
+            description: "Failed to load your grocery data.",
+            variant: "destructive",
+          });
+        } finally {
+          setIsLoading(false);
+        }
+      } else {
+        // Clear data when logged out
+        setGroceries([]);
+        setRecipes([]);
+        setIsLoading(false);
+      }
+    };
     
-    const savedRecipes = loadRecipes();
-    setRecipes(savedRecipes);
-  }, []);
+    fetchData();
+  }, [user]);
   
   // Filter groceries based on active category
   const filteredGroceries = useMemo(() => {
@@ -56,9 +81,18 @@ export const useGroceryList = () => {
   }, [groceries]);
   
   // Add a new grocery item
-  const addGroceryItem = (name: string, quantity: string, notes?: string, recipeId?: string) => {
+  const addGroceryItem = async (name: string, quantity: string, notes?: string, recipeId?: string) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to add items.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     try {
-      const newItem = addItem({
+      const newItem = await addItem({
         name,
         quantity,
         notes,
@@ -82,8 +116,17 @@ export const useGroceryList = () => {
   };
   
   // Save a new recipe
-  const saveRecipe = (title: string, ingredients: { name: string; quantity: string }[]): Recipe => {
-    // Create a new recipe
+  const saveRecipe = async (title: string, ingredients: { name: string; quantity: string }[]): Promise<Recipe> => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to save recipes.",
+        variant: "destructive",
+      });
+      throw new Error("Authentication required");
+    }
+    
+    // Create a new recipe with temporary ID
     const newRecipe: Recipe = {
       id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       title,
@@ -91,17 +134,28 @@ export const useGroceryList = () => {
       createdAt: Date.now(),
     };
     
-    // Add recipe to state and localStorage
+    // Add recipe to state
     const updatedRecipes = [...recipes, newRecipe];
     setRecipes(updatedRecipes);
-    saveRecipeToStorage(updatedRecipes);
     
-    toast({
-      title: "Recipe saved",
-      description: `"${title}" has been saved to your recipes.`,
-    });
-    
-    return newRecipe;
+    // Save to Supabase
+    try {
+      await saveRecipeToStorage(updatedRecipes);
+      
+      toast({
+        title: "Recipe saved",
+        description: `"${title}" has been saved to your recipes.`,
+      });
+      
+      return newRecipe;
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save recipe.",
+        variant: "destructive",
+      });
+      throw error;
+    }
   };
   
   // Add all ingredients from a recipe to the grocery list
@@ -117,9 +171,9 @@ export const useGroceryList = () => {
   };
   
   // Update existing grocery item
-  const updateItem = (item: GroceryItem) => {
+  const updateItem = async (item: GroceryItem) => {
     try {
-      const updatedItems = updateGroceryItem(item);
+      const updatedItems = await updateGroceryItem(item);
       setGroceries(updatedItems);
     } catch (error) {
       toast({
@@ -131,9 +185,9 @@ export const useGroceryList = () => {
   };
   
   // Delete grocery item
-  const deleteItem = (id: string) => {
+  const deleteItem = async (id: string) => {
     try {
-      const updatedItems = deleteGroceryItem(id);
+      const updatedItems = await deleteGroceryItem(id);
       setGroceries(updatedItems);
       toast({
         title: "Item deleted",
@@ -149,9 +203,9 @@ export const useGroceryList = () => {
   };
   
   // Toggle item completion status
-  const toggleCompletion = (id: string) => {
+  const toggleCompletion = async (id: string) => {
     try {
-      const updatedItems = toggleItemCompletion(id);
+      const updatedItems = await toggleItemCompletion(id);
       setGroceries(updatedItems);
     } catch (error) {
       toast({
@@ -163,9 +217,9 @@ export const useGroceryList = () => {
   };
   
   // Toggle item frequent status
-  const toggleFrequent = (id: string) => {
+  const toggleFrequent = async (id: string) => {
     try {
-      const updatedItems = toggleItemFrequent(id);
+      const updatedItems = await toggleItemFrequent(id);
       setGroceries(updatedItems);
       
       // Show a toast when an item is marked as frequent
@@ -186,9 +240,9 @@ export const useGroceryList = () => {
   };
   
   // Reuse a frequent item (add it again to the list)
-  const reuseItem = (item: GroceryItem) => {
+  const reuseItem = async (item: GroceryItem) => {
     try {
-      const newItem = addItem({
+      const newItem = await addItem({
         name: item.name,
         quantity: item.quantity,
         notes: item.notes,
@@ -225,5 +279,6 @@ export const useGroceryList = () => {
     recipes,
     saveRecipe,
     addRecipeToList,
+    isLoading,
   };
 };
