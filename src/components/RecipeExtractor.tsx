@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Input } from '@/components/ui/input';
 import { ChefHat, Upload, PlusCircle, X, Camera, Image, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -31,7 +30,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   isPremium
 }) => {
   const [recipeText, setRecipeText] = useState('');
-  const [recipeUrl, setRecipeUrl] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [open, setOpen] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
@@ -215,10 +213,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setOpen(false);
       return;
     }
-    if (!recipeText && !recipeUrl && !imagePreview) {
+    if (!recipeText && !imagePreview) {
       toast({
         title: "Missing Information",
-        description: "Please enter a recipe, upload an image, or provide a URL to extract ingredients.",
+        description: "Please enter a recipe or upload an image to extract ingredients.",
         variant: "destructive"
       });
       return;
@@ -274,7 +272,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
 
     setOpen(false);
     setRecipeText('');
-    setRecipeUrl('');
     setImagePreview(null);
     setShowNameForm(false);
     setExtractedIngredients([]);
@@ -306,7 +303,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             }) => <FormItem>
                       <FormLabel>Recipe Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="My Delicious Recipe" {...field} />
+                        <input placeholder="My Delicious Recipe" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>} />
@@ -422,36 +419,13 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         </Button>
                       </div>
                     </TabsContent>
-                    
-                    <div className="mt-4 relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                      </div>
-                      <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-background px-2 text-muted-foreground">
-                          Or
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="grid gap-2 mt-4">
-                      <label htmlFor="recipe-url" className="text-sm font-medium">
-                        Recipe URL (coming soon)
-                      </label>
-                      <div className="flex gap-2">
-                        <Input id="recipe-url" placeholder="https://example.com/recipe" value={recipeUrl} onChange={e => setRecipeUrl(e.target.value)} disabled={true} />
-                      </div>
-                      <p className="text-xs text-muted-foreground">
-                        URL parsing will be available in a future update
-                      </p>
-                    </div>
-                  </Tabs>}
+                </Tabs>}
                 
                 <DialogFooter className="mt-4">
                   <Button variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleExtract} disabled={isExtracting || !recipeText && !recipeUrl && !imagePreview}>
+                  <Button onClick={handleExtract} disabled={isExtracting || !recipeText && !imagePreview}>
                     {isExtracting ? "Extracting..." : "Extract Ingredients"}
                   </Button>
                 </DialogFooter>
