@@ -126,21 +126,12 @@ export const useGroceryList = () => {
       throw new Error("Authentication required");
     }
     
-    // Create a new recipe with temporary ID
-    const newRecipe: Recipe = {
-      id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      title,
-      ingredients,
-      createdAt: Date.now(),
-    };
-    
-    // Add recipe to state
-    const updatedRecipes = [...recipes, newRecipe];
-    setRecipes(updatedRecipes);
-    
-    // Save to Supabase
     try {
-      await saveRecipeToStorage(updatedRecipes);
+      // Save recipe to Supabase
+      const newRecipe = await saveRecipeToStorage(title, ingredients);
+      
+      // Update local state
+      setRecipes(prev => [...prev, newRecipe]);
       
       toast({
         title: "Recipe saved",

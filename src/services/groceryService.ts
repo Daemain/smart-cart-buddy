@@ -2,13 +2,47 @@
 import { GroceryItem, GroceryList, Recipe } from '@/types/grocery';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
+import { Json } from '@/integrations/supabase/types';
 
 // Load groceries from Supabase
 export const loadGroceries = async (): Promise<GroceryList> => {
   try {
+    // First, try to get the default list for the user
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) throw new Error('User not authenticated');
+    
+    // Get or create a default grocery list for the user
+    const { data: lists, error: listError } = await supabase
+      .from('grocery_lists')
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    let listId;
+    
+    if (listError || lists.length === 0) {
+      // Create a default list if none exists
+      const { data: newList, error: createError } = await supabase
+        .from('grocery_lists')
+        .insert({
+          name: 'My Grocery List',
+          user_id: userData.user.id
+        })
+        .select()
+        .single();
+        
+      if (createError) throw createError;
+      listId = newList.id;
+    } else {
+      listId = lists[0].id;
+    }
+    
+    // Now get the grocery items for this list
     const { data, error } = await supabase
       .from('grocery_items')
       .select('*')
+      .eq('list_id', listId)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
@@ -35,6 +69,21 @@ export const loadGroceries = async (): Promise<GroceryList> => {
 // Add a new grocery item to Supabase
 export const addGroceryItem = async (item: Omit<GroceryItem, 'id' | 'createdAt'>): Promise<GroceryItem> => {
   try {
+    // Get user and list ID
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) throw new Error('User not authenticated');
+    
+    // Get the default list ID
+    const { data: lists, error: listError } = await supabase
+      .from('grocery_lists')
+      .select('id')
+      .eq('user_id', userData.user.id)
+      .order('created_at', { ascending: false })
+      .limit(1);
+      
+    if (listError || lists.length === 0) throw new Error('No grocery list found');
+    const listId = lists[0].id;
+    
     // Create a new item with temporary ID until we get the one from Supabase
     const tempItem: GroceryItem = {
       ...item,
@@ -51,7 +100,8 @@ export const addGroceryItem = async (item: Omit<GroceryItem, 'id' | 'createdAt'>
         notes: item.notes,
         is_completed: item.isCompleted,
         is_frequent: item.isFrequent,
-        recipe_id: item.recipeId
+        recipe_id: item.recipeId,
+        list_id: listId // This was missing in the previous version
       })
       .select()
       .single();
@@ -215,18 +265,30 @@ export const toggleItemFrequent = async (id: string): Promise<GroceryList> => {
 // Load recipes from Supabase
 export const loadRecipes = async (): Promise<Recipe[]> => {
   try {
+    // Get user
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) throw new Error('User not authenticated');
+    
     const { data, error } = await supabase
       .from('recipes')
       .select('*')
+      .eq('user_id', userData.user.id)
       .order('created_at', { ascending: false });
     
     if (error) throw error;
     
+    // Transform the JSON data to match our Recipe type
     return data.map(recipe => ({
       id: recipe.id,
       title: recipe.title,
-      ingredients: recipe.ingredients,
-      instructions: recipe.instructions,
+      ingredients: Array.isArray(recipe.ingredients) 
+        ? recipe.ingredients 
+        : JSON.parse(typeof recipe.ingredients === 'string' ? recipe.ingredients : JSON.stringify(recipe.ingredients)),
+      instructions: recipe.instructions ? (
+        Array.isArray(recipe.instructions) 
+          ? recipe.instructions 
+          : JSON.parse(typeof recipe.instructions === 'string' ? recipe.instructions : JSON.stringify(recipe.instructions))
+      ) : undefined,
       createdAt: new Date(recipe.created_at).getTime()
     }));
   } catch (error) {
@@ -238,29 +300,56 @@ export const loadRecipes = async (): Promise<Recipe[]> => {
 };
 
 // Save recipe to Supabase
-export const saveRecipe = async (recipes: Recipe[]): Promise<void> => {
-  const latestRecipe = recipes[recipes.length - 1];
-  
+export const saveRecipe = async (title: string, ingredients: { name: string; quantity: string }[]): Promise<Recipe> => {
   try {
-    // Only save the most recently added recipe
-    if (latestRecipe) {
-      const { error } = await supabase
-        .from('recipes')
-        .insert({
-          title: latestRecipe.title,
-          ingredients: latestRecipe.ingredients,
-          instructions: latestRecipe.instructions || null
-        });
-      
-      if (error) throw error;
-    }
+    // Get user
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) throw new Error('User not authenticated');
+    
+    // Create a recipe object to insert
+    const { data, error } = await supabase
+      .from('recipes')
+      .insert({
+        title: title,
+        ingredients: ingredients as unknown as Json,
+        instructions: null,
+        user_id: userData.user.id  // This was missing in the previous version
+      })
+      .select()
+      .single();
+    
+    if (error) throw error;
+    
+    // Transform to our app format
+    const newRecipe: Recipe = {
+      id: data.id,
+      title: data.title,
+      ingredients: Array.isArray(data.ingredients) 
+        ? data.ingredients 
+        : JSON.parse(typeof data.ingredients === 'string' ? data.ingredients : JSON.stringify(data.ingredients)),
+      createdAt: new Date(data.created_at).getTime()
+    };
+    
+    return newRecipe;
   } catch (error) {
     console.error('Failed to save recipe to Supabase', error);
+    
     // Fallback to localStorage
-    try {
-      localStorage.setItem('recipes', JSON.stringify(recipes));
-    } catch (localError) {
-      console.error('Failed to save recipes to localStorage', localError);
-    }
+    const savedRecipes = localStorage.getItem('recipes');
+    const recipes: Recipe[] = savedRecipes ? JSON.parse(savedRecipes) : [];
+    
+    // Create a new recipe with temporary ID
+    const newRecipe: Recipe = {
+      id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: title,
+      ingredients: ingredients,
+      createdAt: Date.now(),
+    };
+    
+    // Add to local storage
+    const updatedRecipes = [...recipes, newRecipe];
+    localStorage.setItem('recipes', JSON.stringify(updatedRecipes));
+    
+    return newRecipe;
   }
 };
