@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
 import { ChefHat, Upload, PlusCircle, X, Camera, Image, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
@@ -296,7 +297,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                   <FormItem>
                     <FormLabel>Recipe Name</FormLabel>
                     <FormControl>
-                      <input placeholder="My Delicious Recipe" {...field} />
+                      <Input placeholder="My Delicious Recipe" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
