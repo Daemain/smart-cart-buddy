@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -16,7 +15,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
-
 const Index = () => {
   const {
     groceries,
@@ -43,28 +41,24 @@ const Index = () => {
   const [showPremiumBanner, setShowPremiumBanner] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [hasFreeTrialUsed, setHasFreeTrialUsed] = useState(false);
-
   useEffect(() => {
     if (profile?.is_premium) {
       setIsPremium(true);
     }
-    
+
     // Check if free trial has been used
     const trialUsed = localStorage.getItem('premiumTrialUsed') === 'true';
     setHasFreeTrialUsed(trialUsed);
-    
     if (allGroceries.length > 3 && !isPremium && !showPremiumBanner) {
       setShowPremiumBanner(true);
     }
   }, [allGroceries.length, isPremium, showPremiumBanner, profile]);
-
   const counts = {
     all: allGroceries.length,
     frequent: allGroceries.filter(item => item.isFrequent).length,
     completed: allGroceries.filter(item => item.isCompleted).length,
     suggested: suggestedItems?.length || 0
   };
-
   const handleRecipeExtracted = (ingredients: {
     name: string;
     quantity: string;
@@ -80,15 +74,13 @@ const Index = () => {
 
   // Logic to handle premium trial access
   const canAccessPremium = isPremium || !hasFreeTrialUsed;
-  
   const handleUpgrade = () => {
     setIsPremium(true);
     toast({
       title: "Welcome to Premium!",
-      description: "You now have access to all premium features.",
+      description: "You now have access to all premium features."
     });
   };
-
   return <div className="min-h-screen bg-app-background flex flex-col">
       <header className="sticky top-0 z-10 bg-app-background shadow-sm border-b">
         <div className="max-w-md mx-auto px-2 py-4">
@@ -131,7 +123,7 @@ const Index = () => {
         </div>
       </header>
 
-      <main className="flex-1 max-w-md mx-auto w-full px-4 py-3">
+      <main className="flex-1 max-w-md mx-auto w-full px-4 py-0">
         {showPremiumBanner && <PremiumBanner onDismiss={() => setShowPremiumBanner(false)} onUpgrade={handleUpgrade} />}
         
         {isLoading ? <div className="flex justify-center items-center h-40">
@@ -139,18 +131,13 @@ const Index = () => {
             <span className="ml-2 text-muted-foreground">Loading your grocery list...</span>
           </div> : <>
             {activeCategory === 'suggested' && <>
-                {canAccessPremium ? 
-                  <SuggestedItems items={suggestedItems || []} reuseItem={reuseItem} /> : 
-                  <div className="mt-6 mb-4">
+                {canAccessPremium ? <SuggestedItems items={suggestedItems || []} reuseItem={reuseItem} /> : <div className="mt-6 mb-4">
                     <EmptyState category="suggested" isPremium={false} onUpgrade={handleUpgrade} />
-                  </div>
-                }
-                {!isPremium && !hasFreeTrialUsed && activeCategory === 'suggested' && (
-                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-md mb-4 text-sm">
+                  </div>}
+                {!isPremium && !hasFreeTrialUsed && activeCategory === 'suggested' && <div className="bg-amber-50 border border-amber-200 p-3 rounded-md mb-4 text-sm">
                     <p className="font-medium text-amber-700">You're using your free trial</p>
                     <p className="text-amber-600">This is a one-time preview of our premium features.</p>
-                  </div>
-                )}
+                  </div>}
               </>}
             
             {(activeCategory !== 'suggested' || canAccessPremium) && <>
@@ -168,5 +155,4 @@ const Index = () => {
       </main>
     </div>;
 };
-
 export default Index;
