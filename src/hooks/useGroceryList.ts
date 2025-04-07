@@ -56,7 +56,7 @@ export const useGroceryList = () => {
   // Filter groceries based on active category
   const filteredGroceries = useMemo(() => {
     return groceries.filter(item => {
-      if (activeCategory === 'all') return true;
+      if (activeCategory === 'all') return !item.isCompleted; // Only show non-completed items in "All"
       if (activeCategory === 'frequent') return item.isFrequent;
       if (activeCategory === 'completed') return item.isCompleted;
       return true;
