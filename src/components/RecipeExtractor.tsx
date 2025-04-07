@@ -11,7 +11,6 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-
 interface RecipeExtractorProps {
   onExtractComplete: (ingredients: {
     name: string;
@@ -19,13 +18,10 @@ interface RecipeExtractorProps {
   }[], recipeName: string) => void;
   isPremium: boolean;
 }
-
 const recipeNameSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required')
 });
-
 type RecipeNameFormValues = z.infer<typeof recipeNameSchema>;
-
 const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   onExtractComplete,
   isPremium
@@ -42,25 +38,21 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     quantity: string;
   }[]>([]);
   const [showNameForm, setShowNameForm] = useState(false);
-  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
   const form = useForm<RecipeNameFormValues>({
     resolver: zodResolver(recipeNameSchema),
     defaultValues: {
       recipeName: ''
     }
   });
-
   useEffect(() => {
     const storedCount = localStorage.getItem('recipeExtractorUsageCount');
     if (storedCount) {
       setUsageCount(parseInt(storedCount, 10));
     }
   }, []);
-
   const parseRecipe = (text: string): {
     name: string;
     quantity: string;
@@ -92,7 +84,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     });
     return ingredients;
   };
-
   const processImageForRecipe = async (imageUrl: string) => {
     setIsExtracting(true);
     try {
@@ -117,7 +108,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -138,7 +128,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     };
     reader.readAsDataURL(file);
   };
-
   const startCapture = async () => {
     setIsCapturing(true);
     try {
@@ -161,7 +150,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsCapturing(false);
     }
   };
-
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -182,7 +170,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       }
     }
   };
-
   const cancelCapture = () => {
     if (videoRef.current) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -194,7 +181,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     setIsCapturing(false);
   };
-
   const handleExtract = async () => {
     const freeUsesRemaining = 2 - usageCount;
     if (!isPremium && usageCount >= 2) {
@@ -258,7 +244,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
-
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
     setOpen(false);
@@ -268,9 +253,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setExtractedIngredients([]);
     form.reset();
   };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
+  return <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="gradient" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit">
           <ChefHat className="h-5 w-5" />
@@ -280,8 +263,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       </DialogTrigger>
       
       <DialogContent className="sm:max-w-md">
-        {showNameForm ? (
-          <>
+        {showNameForm ? <>
             <DialogHeader>
               <DialogTitle>Name Your Recipe</DialogTitle>
               <DialogDescription>
@@ -292,23 +274,21 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmitRecipeName)} className="space-y-4">
                 <FormField control={form.control} name="recipeName" render={({
-                  field
-                }) => (
-                  <FormItem>
+              field
+            }) => <FormItem>
                     <FormLabel>Recipe Name</FormLabel>
                     <FormControl>
                       <Input placeholder="My Delicious Recipe" {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>
-                )} />
+                  </FormItem>} />
                 
                 <div className="text-sm text-muted-foreground">
                   {extractedIngredients.length} ingredients extracted
                 </div>
                 
                 <DialogFooter className="mt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowNameForm(false)}>
+                  <Button type="button" variant="outline" onClick={() => setShowNameForm(false)} className="my-[16px]">
                     Back
                   </Button>
                   <Button type="submit">
@@ -317,9 +297,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 </DialogFooter>
               </form>
             </Form>
-          </>
-        ) : (
-          <>
+          </> : <>
             <DialogHeader className="my-[8px]">
               <DialogTitle className="text-base">Extract Grocery List from Recipe</DialogTitle>
               <DialogDescription className="font-light text-sm">
@@ -327,26 +305,22 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
               </DialogDescription>
             </DialogHeader>
             
-            {!isPremium && usageCount >= 2 ? (
-              <div className="flex flex-col items-center justify-center py-6">
+            {!isPremium && usageCount >= 2 ? <div className="flex flex-col items-center justify-center py-6">
                 <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
                 <p className="text-center text-muted-foreground">
                   Upgrade to premium to automatically extract ingredients from recipes
                 </p>
                 <Button className="mt-4" onClick={() => {
-                  setOpen(false);
-                  toast({
-                    title: "Premium Feature",
-                    description: "Recipe extraction is a premium feature. Please upgrade to use it."
-                  });
-                }}>
+            setOpen(false);
+            toast({
+              title: "Premium Feature",
+              description: "Recipe extraction is a premium feature. Please upgrade to use it."
+            });
+          }}>
                   Upgrade to Premium
                 </Button>
-              </div>
-            ) : (
-              <>
-                {isCapturing ? (
-                  <div className="grid gap-4">
+              </div> : <>
+                {isCapturing ? <div className="grid gap-4">
                     <div className="relative">
                       <video ref={videoRef} className="w-full h-64 object-cover rounded-md bg-muted" autoPlay playsInline></video>
                       <canvas ref={canvasRef} className="hidden"></canvas>
@@ -359,9 +333,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         Take Photo
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  </div> : <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid grid-cols-3 mb-4">
                       <TabsTrigger value="text">Text</TabsTrigger>
                       <TabsTrigger value="image">Upload</TabsTrigger>
@@ -379,15 +351,12 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     
                     <TabsContent value="image" className="mt-0">
                       <div className="grid gap-4">
-                        {imagePreview ? (
-                          <div className="relative">
+                        {imagePreview ? <div className="relative">
                             <img src={imagePreview} alt="Recipe" className="w-full max-h-48 object-contain rounded-md border" />
                             <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80" onClick={() => setImagePreview(null)}>
                               <X className="h-4 w-4" />
                             </Button>
-                          </div>
-                        ) : (
-                          <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                          </div> : <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                             <div className="flex flex-col items-center gap-2">
                               <Image className="h-8 w-8 text-muted-foreground" />
                               <p className="text-sm font-medium">
@@ -397,15 +366,12 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                                 or drag and drop here
                               </p>
                             </div>
-                          </div>
-                        )}
+                          </div>}
                         <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                        {!imagePreview && (
-                          <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
+                        {!imagePreview && <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
                             <Upload className="mr-2 h-4 w-4" />
                             Choose File
-                          </Button>
-                        )}
+                          </Button>}
                       </div>
                     </TabsContent>
                     
@@ -428,8 +394,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         </Button>
                       </div>
                     </TabsContent>
-                  </Tabs>
-                )}
+                  </Tabs>}
                 
                 <DialogFooter className="mt-4">
                   <Button variant="outline" onClick={() => setOpen(false)} className="my-[16px]">
@@ -439,13 +404,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     {isExtracting ? "Extracting..." : "Extract Ingredients"}
                   </Button>
                 </DialogFooter>
-              </>
-            )}
-          </>
-        )}
+              </>}
+          </>}
       </DialogContent>
-    </Dialog>
-  );
+    </Dialog>;
 };
-
 export default RecipeExtractor;
