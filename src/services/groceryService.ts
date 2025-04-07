@@ -1,3 +1,4 @@
+
 import { GroceryItem, GroceryList, Recipe } from '@/types/grocery';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
@@ -117,6 +118,7 @@ export const addGroceryItem = async (item: Omit<GroceryItem, 'id' | 'createdAt'>
       isCompleted: data.is_completed || false,
       isFrequent: data.is_frequent || false,
       createdAt: new Date(data.created_at).getTime(),
+      completedAt: undefined, // Initialize as undefined for new items
       recipeId: data.recipe_id || undefined
     };
   } catch (error) {
@@ -148,7 +150,8 @@ export const updateGroceryItem = async (updatedItem: GroceryItem): Promise<Groce
         notes: updatedItem.notes,
         is_completed: updatedItem.isCompleted,
         is_frequent: updatedItem.isFrequent,
-        recipe_id: updatedItem.recipeId
+        recipe_id: updatedItem.recipeId,
+        completed_at: updatedItem.completedAt ? new Date(updatedItem.completedAt).toISOString() : null
       })
       .eq('id', updatedItem.id);
     
@@ -204,13 +207,15 @@ export const toggleItemCompletion = async (id: string): Promise<GroceryList> => 
     
     if (fetchError) throw fetchError;
     
+    // Calculate the completed_at timestamp if we're completing the item
+    const completedAt = !currentItem.is_completed ? new Date().toISOString() : null;
+    
     // Toggle the completion status
     const { error } = await supabase
       .from('grocery_items')
       .update({ 
         is_completed: !currentItem.is_completed,
-        // If we're completing the item, set the completed_at timestamp
-        ...(currentItem.is_completed ? {} : { completed_at: new Date().toISOString() })
+        completed_at: completedAt
       })
       .eq('id', id);
     

@@ -65,23 +65,23 @@ const Index = () => {
     const item = allGroceries.find(item => item.id === id);
     if (!item) return;
     
-    // If the item is not completed and we're marking it as completed,
-    // and we're not already in the completed category
-    if (!item.isCompleted && activeCategory !== 'completed') {
+    // If the item is not completed and we're marking it as completed
+    if (!item.isCompleted) {
       // Toggle the completion status
       toggleCompletion(id);
       
-      // Show toast notification
-      toast({
-        title: "Item completed",
-        description: "Item moved to completed items",
-      });
-      
-      // Change the category to 'completed' 
-      // (commented out to stay on same page, uncomment if you want to navigate)
-      // setActiveCategory('completed');
+      // If we're not already in the completed category, show toast notification
+      if (activeCategory !== 'completed') {
+        toast({
+          title: "Item completed",
+          description: "Item moved to completed items",
+        });
+        
+        // Change the category to 'completed' 
+        setActiveCategory('completed');
+      }
     } else {
-      // Regular toggle
+      // Regular toggle for uncompleting an item
       toggleCompletion(id);
     }
   };
