@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -14,6 +15,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+import { toast } from '@/components/ui/use-toast';
 
 const Index = () => {
   const {
@@ -40,11 +42,17 @@ const Index = () => {
   } = useAuth();
   const [showPremiumBanner, setShowPremiumBanner] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+  const [hasFreeTrialUsed, setHasFreeTrialUsed] = useState(false);
 
   useEffect(() => {
     if (profile?.is_premium) {
       setIsPremium(true);
     }
+    
+    // Check if free trial has been used
+    const trialUsed = localStorage.getItem('premiumTrialUsed') === 'true';
+    setHasFreeTrialUsed(trialUsed);
+    
     if (allGroceries.length > 3 && !isPremium && !showPremiumBanner) {
       setShowPremiumBanner(true);
     }
@@ -67,6 +75,17 @@ const Index = () => {
       });
     }).catch(error => {
       console.error('Failed to save recipe:', error);
+    });
+  };
+
+  // Logic to handle premium trial access
+  const canAccessPremium = isPremium || !hasFreeTrialUsed;
+  
+  const handleUpgrade = () => {
+    setIsPremium(true);
+    toast({
+      title: "Welcome to Premium!",
+      description: "You now have access to all premium features.",
     });
   };
 
@@ -108,32 +127,41 @@ const Index = () => {
             </div>
           </div>
           
-          <CategoryNav activeCategory={activeCategory} setActiveCategory={setActiveCategory} counts={counts} isPremium={isPremium} />
+          <CategoryNav activeCategory={activeCategory} setActiveCategory={setActiveCategory} counts={counts} isPremium={canAccessPremium} />
         </div>
       </header>
 
       <main className="flex-1 max-w-md mx-auto w-full px-4 py-3">
-        {showPremiumBanner && <PremiumBanner onDismiss={() => setShowPremiumBanner(false)} onUpgrade={() => setIsPremium(true)} />}
+        {showPremiumBanner && <PremiumBanner onDismiss={() => setShowPremiumBanner(false)} onUpgrade={handleUpgrade} />}
         
         {isLoading ? <div className="flex justify-center items-center h-40">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <span className="ml-2 text-muted-foreground">Loading your grocery list...</span>
           </div> : <>
             {activeCategory === 'suggested' && <>
-                {isPremium ? <SuggestedItems items={suggestedItems || []} reuseItem={reuseItem} /> : <div className="mt-6 mb-4">
-                    <EmptyState category="suggested" isPremium={false} onUpgrade={() => setIsPremium(true)} />
-                  </div>}
+                {canAccessPremium ? 
+                  <SuggestedItems items={suggestedItems || []} reuseItem={reuseItem} /> : 
+                  <div className="mt-6 mb-4">
+                    <EmptyState category="suggested" isPremium={false} onUpgrade={handleUpgrade} />
+                  </div>
+                }
+                {!isPremium && !hasFreeTrialUsed && activeCategory === 'suggested' && (
+                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-md mb-4 text-sm">
+                    <p className="font-medium text-amber-700">You're using your free trial</p>
+                    <p className="text-amber-600">This is a one-time preview of our premium features.</p>
+                  </div>
+                )}
               </>}
             
-            {(activeCategory !== 'suggested' || isPremium) && <>
+            {(activeCategory !== 'suggested' || canAccessPremium) && <>
                 <div className="flex justify-start my-3">
-                  <RecipeExtractor onExtractComplete={handleRecipeExtracted} isPremium={isPremium} />
+                  <RecipeExtractor onExtractComplete={handleRecipeExtracted} isPremium={canAccessPremium} />
                 </div>
                 
                 <RecipeFolder recipes={recipes} onAddToList={addRecipeToList} />
                 
                 <div className="space-y-2 mt-1">
-                  {groceries.length === 0 ? <EmptyState category={activeCategory} isPremium={isPremium} /> : groceries.map(item => <GroceryItem key={item.id} item={item} toggleCompletion={toggleCompletion} toggleFrequent={toggleFrequent} deleteItem={deleteItem} reuseItem={activeCategory === 'frequent' ? reuseItem : undefined} />)}
+                  {groceries.length === 0 ? <EmptyState category={activeCategory} isPremium={canAccessPremium} /> : groceries.map(item => <GroceryItem key={item.id} item={item} toggleCompletion={toggleCompletion} toggleFrequent={toggleFrequent} deleteItem={deleteItem} reuseItem={activeCategory === 'frequent' ? reuseItem : undefined} />)}
                 </div>
               </>}
           </>}
