@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -29,14 +28,12 @@ const Index = () => {
   const [showPremiumBanner, setShowPremiumBanner] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
 
-  // Show premium banner after 3 items added
   useEffect(() => {
     if (allGroceries.length > 3 && !isPremium && !showPremiumBanner) {
       setShowPremiumBanner(true);
     }
   }, [allGroceries.length, isPremium, showPremiumBanner]);
 
-  // Count items for each category
   const counts = {
     all: allGroceries.length,
     frequent: allGroceries.filter(item => item.isFrequent).length,
@@ -44,14 +41,10 @@ const Index = () => {
     suggested: suggestedItems?.length || 0,
   };
 
-  // Handler for recipe extraction completion
   const handleRecipeExtracted = (ingredients: { name: string; quantity: string }[]) => {
-    // Add each ingredient to the grocery list
     ingredients.forEach(ingredient => {
       addGroceryItem(ingredient.name, ingredient.quantity || '1');
     });
-    
-    // Show success toast via the groceryService itself
   };
 
   return (
@@ -87,13 +80,6 @@ const Index = () => {
           />
         )}
         
-        <div className="flex justify-start mb-3 mt-1">
-          <RecipeExtractor 
-            onExtractComplete={handleRecipeExtracted} 
-            isPremium={isPremium} 
-          />
-        </div>
-        
         {activeCategory === 'suggested' && (
           <>
             {isPremium ? (
@@ -112,6 +98,13 @@ const Index = () => {
             )}
           </>
         )}
+        
+        <div className="flex justify-start my-3">
+          <RecipeExtractor 
+            onExtractComplete={handleRecipeExtracted} 
+            isPremium={isPremium} 
+          />
+        </div>
         
         {(activeCategory !== 'suggested' || isPremium) && (
           <div className="space-y-2 mt-1">

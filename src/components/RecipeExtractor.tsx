@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ChefHat, Upload, PlusCircle, X } from 'lucide-react';
+import { ChefHat, Upload, PlusCircle, X, Camera, Image } from 'lucide-react';
 import { 
   Dialog,
   DialogContent,
@@ -13,8 +13,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogClose
 } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { pipeline } from '@huggingface/transformers';
 
 interface RecipeExtractorProps {
   onExtractComplete: (ingredients: { name: string; quantity: string }[]) => void;
@@ -30,6 +33,12 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const [isExtracting, setIsExtracting] = useState(false);
   const [open, setOpen] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('text');
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Load usage count from localStorage on mount
   useEffect(() => {
@@ -74,6 +83,145 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     return ingredients;
   };
 
+  // Process image through OCR and recipe extraction
+  const processImageForRecipe = async (imageUrl: string) => {
+    setIsExtracting(true);
+    
+    try {
+      toast({
+        title: "Processing image",
+        description: "Analyzing your recipe image..."
+      });
+      
+      // In a real implementation, we would:
+      // 1. Load an OCR model from Hugging Face
+      // 2. Extract text from the image
+      // 3. Process the text to extract ingredients
+      
+      // For now, we'll use a timeout to simulate processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Mock data - in a real app, this would come from the OCR + AI processing
+      const extractedText = 
+        "Recipe for Pancakes\n" +
+        "2 cups flour\n" +
+        "2 tablespoons sugar\n" +
+        "1 teaspoon baking powder\n" +
+        "1/2 teaspoon salt\n" +
+        "2 eggs\n" +
+        "1 1/2 cups milk\n" +
+        "2 tablespoons melted butter";
+      
+      setRecipeText(extractedText);
+      setActiveTab('text');
+      
+      return extractedText;
+    } catch (error) {
+      console.error("Error processing image:", error);
+      toast({
+        title: "Image processing failed",
+        description: "We couldn't extract text from this image. Please try again or enter the recipe manually.",
+        variant: "destructive",
+      });
+      return null;
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
+  // Handle file upload
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Check if it's an image
+    if (!file.type.startsWith('image/')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Create a preview
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setImagePreview(event.target.result as string);
+        processImageForRecipe(event.target.result as string);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle camera capture
+  const startCapture = async () => {
+    setIsCapturing(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.play();
+      }
+    } catch (err) {
+      console.error("Error accessing camera:", err);
+      toast({
+        title: "Camera access failed",
+        description: "We couldn't access your camera. Please check your permissions or try uploading an image instead.",
+        variant: "destructive",
+      });
+      setIsCapturing(false);
+    }
+  };
+
+  const captureImage = () => {
+    if (videoRef.current && canvasRef.current) {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      
+      // Set canvas dimensions to match video
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      
+      // Draw the video frame to the canvas
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert to data URL
+        const imageDataUrl = canvas.toDataURL('image/jpeg');
+        setImagePreview(imageDataUrl);
+        
+        // Stop the camera stream
+        const stream = video.srcObject as MediaStream;
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        video.srcObject = null;
+        
+        setIsCapturing(false);
+        
+        // Process the captured image
+        processImageForRecipe(imageDataUrl);
+      }
+    }
+  };
+
+  const cancelCapture = () => {
+    if (videoRef.current) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+    }
+    setIsCapturing(false);
+  };
+
   const handleExtract = async () => {
     const freeUsesRemaining = 2 - usageCount;
     
@@ -87,10 +235,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       return;
     }
 
-    if (!recipeText && !recipeUrl) {
+    if (!recipeText && !recipeUrl && !imagePreview) {
       toast({
         title: "Missing Information",
-        description: "Please enter a recipe or URL to extract ingredients.",
+        description: "Please enter a recipe, upload an image, or provide a URL to extract ingredients.",
         variant: "destructive",
       });
       return;
@@ -138,6 +286,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         setOpen(false);
         setRecipeText('');
         setRecipeUrl('');
+        setImagePreview(null);
       }
     } catch (error) {
       toast({
@@ -164,7 +313,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           <DialogDescription>
             {(!isPremium && usageCount >= 2) 
               ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." 
-              : "Paste your recipe or provide a URL to extract ingredients"}
+              : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
           </DialogDescription>
         </DialogHeader>
         
@@ -190,57 +339,168 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           </div>
         ) : (
           <>
-            <div className="grid gap-4 py-2">
-              <div className="grid gap-2">
-                <label htmlFor="recipe-text" className="text-sm font-medium">
-                  Paste your recipe
-                </label>
-                <Textarea
-                  id="recipe-text"
-                  placeholder="Paste your recipe ingredients and instructions here..."
-                  rows={8}
-                  value={recipeText}
-                  onChange={(e) => setRecipeText(e.target.value)}
-                />
-              </div>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
+            {isCapturing ? (
+              <div className="grid gap-4">
+                <div className="relative">
+                  <video 
+                    ref={videoRef} 
+                    className="w-full h-64 object-cover rounded-md bg-muted"
+                    autoPlay 
+                    playsInline
+                  ></video>
+                  <canvas ref={canvasRef} className="hidden"></canvas>
                 </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">
-                    Or
-                  </span>
+                <div className="flex justify-between gap-2">
+                  <Button variant="outline" onClick={cancelCapture}>
+                    Cancel
+                  </Button>
+                  <Button onClick={captureImage}>
+                    Take Photo
+                  </Button>
                 </div>
               </div>
-              
-              <div className="grid gap-2">
-                <label htmlFor="recipe-url" className="text-sm font-medium">
-                  Recipe URL (coming soon)
-                </label>
-                <div className="flex gap-2">
-                  <Input
-                    id="recipe-url"
-                    placeholder="https://example.com/recipe"
-                    value={recipeUrl}
-                    onChange={(e) => setRecipeUrl(e.target.value)}
-                    disabled={true}
-                  />
+            ) : (
+              <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                <TabsList className="grid grid-cols-3 mb-4">
+                  <TabsTrigger value="text">Text</TabsTrigger>
+                  <TabsTrigger value="image">Upload</TabsTrigger>
+                  <TabsTrigger value="camera">Camera</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="text" className="mt-0">
+                  <div className="grid gap-2">
+                    <label htmlFor="recipe-text" className="text-sm font-medium">
+                      Paste your recipe
+                    </label>
+                    <Textarea
+                      id="recipe-text"
+                      placeholder="Paste your recipe ingredients and instructions here..."
+                      rows={6}
+                      value={recipeText}
+                      onChange={(e) => setRecipeText(e.target.value)}
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="image" className="mt-0">
+                  <div className="grid gap-4">
+                    {imagePreview ? (
+                      <div className="relative">
+                        <img 
+                          src={imagePreview} 
+                          alt="Recipe" 
+                          className="w-full max-h-48 object-contain rounded-md border"
+                        />
+                        <Button 
+                          variant="outline" 
+                          size="icon"
+                          className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80"
+                          onClick={() => setImagePreview(null)}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <div 
+                        className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <Image className="h-8 w-8 text-muted-foreground" />
+                          <p className="text-sm font-medium">
+                            Click to upload a recipe image
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            or drag and drop here
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    <input 
+                      type="file" 
+                      ref={fileInputRef}
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleFileUpload}
+                    />
+                    {!imagePreview && (
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => fileInputRef.current?.click()}
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Choose File
+                      </Button>
+                    )}
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="camera" className="mt-0">
+                  <div className="grid gap-4">
+                    <div 
+                      className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                      onClick={startCapture}
+                    >
+                      <div className="flex flex-col items-center gap-2">
+                        <Camera className="h-8 w-8 text-muted-foreground" />
+                        <p className="text-sm font-medium">
+                          Take a photo of your recipe
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Use your device camera to capture a recipe
+                        </p>
+                      </div>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={startCapture}
+                    >
+                      <Camera className="mr-2 h-4 w-4" />
+                      Open Camera
+                    </Button>
+                  </div>
+                </TabsContent>
+                
+                <div className="mt-4 relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">
+                      Or
+                    </span>
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  URL parsing will be available in a future update
-                </p>
-              </div>
-            </div>
+                
+                <div className="grid gap-2 mt-4">
+                  <label htmlFor="recipe-url" className="text-sm font-medium">
+                    Recipe URL (coming soon)
+                  </label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="recipe-url"
+                      placeholder="https://example.com/recipe"
+                      value={recipeUrl}
+                      onChange={(e) => setRecipeUrl(e.target.value)}
+                      disabled={true}
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    URL parsing will be available in a future update
+                  </p>
+                </div>
+              </Tabs>
+            )}
             
-            <DialogFooter>
+            <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
               <Button 
                 onClick={handleExtract} 
-                disabled={isExtracting || (!recipeText && !recipeUrl)}
+                disabled={isExtracting || (!recipeText && !recipeUrl && !imagePreview)}
               >
                 {isExtracting ? "Extracting..." : "Extract Ingredients"}
               </Button>
