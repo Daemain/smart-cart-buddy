@@ -9,8 +9,18 @@ import SuggestedItems from '@/components/SuggestedItems';
 import PremiumBanner from '@/components/PremiumBanner';
 import RecipeExtractor from '@/components/RecipeExtractor';
 import RecipeFolder from '@/components/RecipeFolder';
-import { ShoppingCart, Menu } from 'lucide-react';
+import { ShoppingCart, Menu, LogOut, User } from 'lucide-react';
 import { GroceryCategory, Recipe } from '@/types/grocery';
+import { useAuth } from '@/contexts/AuthContext';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Button } from '@/components/ui/button';
 
 const Index = () => {
   const {
@@ -30,14 +40,20 @@ const Index = () => {
     addRecipeToList
   } = useGroceryList();
 
+  const { user, profile, signOut } = useAuth();
   const [showPremiumBanner, setShowPremiumBanner] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
 
   useEffect(() => {
+    // Check if user has premium status from profile
+    if (profile?.is_premium) {
+      setIsPremium(true);
+    }
+    
     if (allGroceries.length > 3 && !isPremium && !showPremiumBanner) {
       setShowPremiumBanner(true);
     }
-  }, [allGroceries.length, isPremium, showPremiumBanner]);
+  }, [allGroceries.length, isPremium, showPremiumBanner, profile]);
 
   const counts = {
     all: allGroceries.length,
@@ -69,6 +85,29 @@ const Index = () => {
             </div>
             <div className="flex items-center gap-2">
               <AddGroceryForm addGroceryItem={addGroceryItem} />
+              
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="icon" className="rounded-full">
+                    <User className="h-5 w-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuLabel>My Account</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem disabled>
+                    {profile?.username || user?.email}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem disabled>
+                    {isPremium ? 'Premium User' : 'Free User'}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => signOut()}>
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
           
