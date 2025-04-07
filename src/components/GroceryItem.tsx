@@ -2,9 +2,15 @@
 import React from 'react';
 import { GroceryItem as GroceryItemType } from '@/types/grocery';
 import { cn } from '@/lib/utils';
-import { Star, Trash2, Plus } from 'lucide-react';
+import { Star, Trash2, Plus, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface GroceryItemProps {
   item: GroceryItemType;
@@ -43,14 +49,38 @@ const GroceryItem: React.FC<GroceryItemProps> = ({
           <div className={cn("font-medium truncate", isCompleted && "line-through opacity-70")}>
             {name}
           </div>
-          <div className="text-sm font-medium text-muted-foreground flex-shrink-0">
-            {quantity}
-          </div>
+          
+          {quantity && (
+            <div className="text-sm font-medium bg-primary/10 text-primary px-2 py-0.5 rounded-full flex-shrink-0">
+              {quantity}
+            </div>
+          )}
         </div>
         
         {notes && (
-          <div className="text-sm text-muted-foreground mt-0.5 truncate">
-            {notes}
+          <div className="relative">
+            <div className="text-sm text-muted-foreground mt-0.5 line-clamp-1 pr-5">
+              {notes}
+            </div>
+            
+            {notes.length > 60 && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 absolute right-0 top-0 text-muted-foreground hover:text-foreground"
+                    >
+                      <Info className="h-3.5 w-3.5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="max-w-xs whitespace-normal break-words">{notes}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
         )}
       </div>
