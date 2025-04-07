@@ -9,6 +9,7 @@ export interface GroceryItem {
   createdAt: number;
   category?: string; // Optional category for organization
   lastPurchased?: number; // For auto-suggestions based on history
+  fromRecipe?: string; // To track which recipe an item came from
 }
 
 export type GroceryList = GroceryItem[];
@@ -27,4 +28,18 @@ export interface PremiumFeatures {
   sharedLists: boolean;
   darkMode: boolean;
   barcodeScanner: boolean;
+  recipeExtractor: boolean; // New premium feature for recipe extraction
 }
+
+export interface Recipe {
+  title: string;
+  ingredients: {
+    name: string;
+    quantity: string;
+    unit?: string;
+  }[];
+  instructions?: string[];
+  url?: string;
+  imageUrl?: string;
+}
+

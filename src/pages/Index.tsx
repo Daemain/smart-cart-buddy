@@ -7,6 +7,7 @@ import CategoryNav from '@/components/CategoryNav';
 import EmptyState from '@/components/EmptyState';
 import SuggestedItems from '@/components/SuggestedItems';
 import PremiumBanner from '@/components/PremiumBanner';
+import RecipeExtractor from '@/components/RecipeExtractor';
 import { ShoppingCart, Menu } from 'lucide-react';
 import { GroceryCategory } from '@/types/grocery';
 
@@ -43,6 +44,16 @@ const Index = () => {
     suggested: suggestedItems?.length || 0,
   };
 
+  // Handler for recipe extraction completion
+  const handleRecipeExtracted = (ingredients: { name: string; quantity: string }[]) => {
+    // Add each ingredient to the grocery list
+    ingredients.forEach(ingredient => {
+      addGroceryItem(ingredient.name, ingredient.quantity || '1');
+    });
+    
+    // Show success toast via the groceryService itself
+  };
+
   return (
     <div className="min-h-screen bg-app-background flex flex-col">
       <header className="sticky top-0 z-10 bg-app-background shadow-sm border-b">
@@ -54,7 +65,13 @@ const Index = () => {
               </div>
               <h1 className="text-xl font-bold">Smart Cart Buddy</h1>
             </div>
-            <AddGroceryForm addGroceryItem={addGroceryItem} />
+            <div className="flex items-center gap-2">
+              <RecipeExtractor 
+                onExtractComplete={handleRecipeExtracted} 
+                isPremium={isPremium} 
+              />
+              <AddGroceryForm addGroceryItem={addGroceryItem} />
+            </div>
           </div>
           
           <CategoryNav
