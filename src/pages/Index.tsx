@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -33,7 +32,8 @@ const Index = () => {
     saveRecipe,
     recipes,
     addRecipeToList,
-    isLoading
+    isLoading,
+    counts
   } = useGroceryList();
   
   const {
@@ -59,7 +59,6 @@ const Index = () => {
     }
   }, [allGroceries.length, isPremium, showPremiumBanner, profile]);
   
-  // Custom handler for toggling completion
   const handleToggleCompletion = (id: string) => {
     // First, get the current item
     const item = allGroceries.find(item => item.id === id);
@@ -86,13 +85,6 @@ const Index = () => {
     }
   };
   
-  const counts = {
-    all: allGroceries.length,
-    frequent: allGroceries.filter(item => item.isFrequent).length,
-    completed: allGroceries.filter(item => item.isCompleted).length,
-    suggested: suggestedItems?.length || 0
-  };
-  
   const handleRecipeExtracted = (ingredients: {
     name: string;
     quantity: string;
@@ -106,7 +98,6 @@ const Index = () => {
     });
   };
 
-  // Logic to handle premium trial access
   const canAccessPremium = isPremium || !hasFreeTrialUsed;
   
   const handleUpgrade = () => {

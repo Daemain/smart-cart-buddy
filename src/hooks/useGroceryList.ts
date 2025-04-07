@@ -63,6 +63,16 @@ export const useGroceryList = () => {
     });
   }, [groceries, activeCategory]);
   
+  // Calculate category counts
+  const categoryCounts = useMemo(() => {
+    return {
+      all: groceries.filter(item => !item.isCompleted).length,
+      frequent: groceries.filter(item => item.isFrequent).length,
+      completed: groceries.filter(item => item.isCompleted).length,
+      suggested: suggestedItems.length,
+    };
+  }, [groceries, suggestedItems]);
+  
   // Generate suggested items based on purchase frequency
   const suggestedItems = useMemo(() => {
     // Get items that are purchased frequently but not currently in the list
@@ -271,5 +281,6 @@ export const useGroceryList = () => {
     saveRecipe,
     addRecipeToList,
     isLoading,
+    counts: categoryCounts,
   };
 };
