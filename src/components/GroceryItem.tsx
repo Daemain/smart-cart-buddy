@@ -39,7 +39,7 @@ const GroceryItem: React.FC<GroceryItemProps> = ({
               {name}
             </div>
             
-            {quantity && <div className="text-xsm font-regular bg-primary/10 text-primary px-2 py-0.5 rounded-full self-start">
+            {quantity && <div className="text-xs font-regular bg-primary/10 text-primary px-2 py-0.5 rounded-full self-start">
                 {quantity}
               </div>}
           </div>
