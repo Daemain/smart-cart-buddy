@@ -10,7 +10,6 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-
 interface RecipeExtractorProps {
   onExtractComplete: (ingredients: {
     name: string;
@@ -18,13 +17,10 @@ interface RecipeExtractorProps {
   }[], recipeName: string) => void;
   isPremium: boolean;
 }
-
 const recipeNameSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required')
 });
-
 type RecipeNameFormValues = z.infer<typeof recipeNameSchema>;
-
 const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   onExtractComplete,
   isPremium
@@ -50,14 +46,12 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       recipeName: ''
     }
   });
-
   useEffect(() => {
     const storedCount = localStorage.getItem('recipeExtractorUsageCount');
     if (storedCount) {
       setUsageCount(parseInt(storedCount, 10));
     }
   }, []);
-
   const parseRecipe = (text: string): {
     name: string;
     quantity: string;
@@ -70,7 +64,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     lines.forEach(line => {
       line = line.trim();
       if (!line) return;
-
       const quantityMatch = line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+of\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s+(.+)$/);
       if (quantityMatch) {
         const quantity = quantityMatch[1] ? quantityMatch[1].trim() : '';
@@ -90,7 +83,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     });
     return ingredients;
   };
-
   const processImageForRecipe = async (imageUrl: string) => {
     setIsExtracting(true);
     try {
@@ -98,9 +90,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         title: "Processing image",
         description: "Analyzing your recipe image..."
       });
-
       await new Promise(resolve => setTimeout(resolve, 2000));
-
       const extractedText = "Recipe for Pancakes\n" + "2 cups flour\n" + "2 tablespoons sugar\n" + "1 teaspoon baking powder\n" + "1/2 teaspoon salt\n" + "2 eggs\n" + "1 1/2 cups milk\n" + "2 tablespoons melted butter";
       setRecipeText(extractedText);
       setActiveTab('text');
@@ -117,11 +107,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
@@ -130,7 +118,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       });
       return;
     }
-
     const reader = new FileReader();
     reader.onload = event => {
       if (event.target?.result) {
@@ -140,7 +127,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     };
     reader.readAsDataURL(file);
   };
-
   const startCapture = async () => {
     setIsCapturing(true);
     try {
@@ -163,33 +149,26 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsCapturing(false);
     }
   };
-
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
         const imageDataUrl = canvas.toDataURL('image/jpeg');
         setImagePreview(imageDataUrl);
-
         const stream = video.srcObject as MediaStream;
         const tracks = stream.getTracks();
         tracks.forEach(track => track.stop());
         video.srcObject = null;
         setIsCapturing(false);
-
         processImageForRecipe(imageDataUrl);
       }
     }
   };
-
   const cancelCapture = () => {
     if (videoRef.current) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -201,7 +180,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     setIsCapturing(false);
   };
-
   const handleExtract = async () => {
     const freeUsesRemaining = 2 - usageCount;
     if (!isPremium && usageCount >= 2) {
@@ -252,7 +230,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             description: `Found ${ingredients.length} ingredients in your recipe.`
           });
         }
-
         setExtractedIngredients(ingredients);
         setShowNameForm(true);
       }
@@ -266,10 +243,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
-
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
-
     setOpen(false);
     setRecipeText('');
     setImagePreview(null);
@@ -277,7 +252,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setExtractedIngredients([]);
     form.reset();
   };
-
   return <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="gradient" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit">
@@ -422,7 +396,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 </Tabs>}
                 
                 <DialogFooter className="mt-4">
-                  <Button variant="outline" onClick={() => setOpen(false)}>
+                  <Button variant="outline" onClick={() => setOpen(false)} className="my-[16px]">
                     Cancel
                   </Button>
                   <Button onClick={handleExtract} disabled={isExtracting || !recipeText && !imagePreview}>
@@ -434,5 +408,4 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       </DialogContent>
     </Dialog>;
 };
-
 export default RecipeExtractor;
