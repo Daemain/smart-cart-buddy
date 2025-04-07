@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { GroceryItem, GroceryList, GroceryCategory } from '@/types/grocery';
 import { 
   loadGroceries, 
@@ -23,12 +23,31 @@ export const useGroceryList = () => {
   }, []);
   
   // Filter groceries based on active category
-  const filteredGroceries = groceries.filter(item => {
-    if (activeCategory === 'all') return true;
-    if (activeCategory === 'frequent') return item.isFrequent;
-    if (activeCategory === 'completed') return item.isCompleted;
-    return true;
-  });
+  const filteredGroceries = useMemo(() => {
+    return groceries.filter(item => {
+      if (activeCategory === 'all') return true;
+      if (activeCategory === 'frequent') return item.isFrequent;
+      if (activeCategory === 'completed') return item.isCompleted;
+      return true;
+    });
+  }, [groceries, activeCategory]);
+  
+  // Generate suggested items based on purchase frequency
+  const suggestedItems = useMemo(() => {
+    // Get items that are purchased frequently but not currently in the list
+    // or completed items that might need to be repurchased
+    const frequentItems = groceries.filter(item => item.isFrequent);
+    
+    // In a real app, we would implement more sophisticated logic here
+    // For now, just return some frequent items that aren't in the current list
+    const nonCompletedIds = new Set(
+      groceries.filter(item => !item.isCompleted).map(item => item.name.toLowerCase())
+    );
+    
+    return frequentItems
+      .filter(item => !nonCompletedIds.has(item.name.toLowerCase()))
+      .slice(0, 4);
+  }, [groceries]);
   
   // Add a new grocery item
   const addGroceryItem = (name: string, quantity: string, notes?: string) => {
@@ -106,6 +125,15 @@ export const useGroceryList = () => {
     try {
       const updatedItems = toggleItemFrequent(id);
       setGroceries(updatedItems);
+      
+      // Show a toast when an item is marked as frequent
+      const item = updatedItems.find(item => item.id === id);
+      if (item?.isFrequent) {
+        toast({
+          title: "Added to frequent items",
+          description: `${item.name} will appear in your frequent items.`,
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -151,5 +179,6 @@ export const useGroceryList = () => {
     toggleCompletion,
     toggleFrequent,
     reuseItem,
+    suggestedItems,
   };
 };

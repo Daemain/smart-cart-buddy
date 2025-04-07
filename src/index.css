@@ -92,6 +92,18 @@
 
   body {
     @apply bg-app-background text-foreground;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 }
 
@@ -101,7 +113,7 @@
   }
   
   .grocery-item:hover {
-    @apply bg-muted;
+    @apply bg-muted/50;
   }
   
   .grocery-item.completed {

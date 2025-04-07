@@ -9,9 +9,11 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-  DialogClose
+  DialogClose,
+  DialogDescription
 } from '@/components/ui/dialog';
-import { Plus } from 'lucide-react';
+import { Plus, ListPlus } from 'lucide-react';
+import { Label } from '@/components/ui/label';
 
 interface AddGroceryFormProps {
   addGroceryItem: (name: string, quantity: string, notes?: string) => void;
@@ -40,36 +42,38 @@ const AddGroceryForm: React.FC<AddGroceryFormProps> = ({ addGroceryItem }) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
+        <Button size="sm" className="gap-1 rounded-full">
           <Plus className="h-4 w-4" />
-          Add Item
+          <span className="sm:inline hidden">Add Item</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Add Grocery Item</DialogTitle>
+          <DialogDescription>Add a new item to your grocery list</DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
-            <label htmlFor="name" className="text-sm font-medium">
+            <Label htmlFor="name">
               Item Name
-            </label>
+            </Label>
             <Input
               id="name"
-              placeholder="Milk"
+              placeholder="e.g., Milk"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
+              autoFocus
             />
           </div>
           
           <div className="space-y-2">
-            <label htmlFor="quantity" className="text-sm font-medium">
+            <Label htmlFor="quantity">
               Quantity
-            </label>
+            </Label>
             <Input
               id="quantity"
-              placeholder="1 gallon"
+              placeholder="e.g., 1 gallon"
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               required
@@ -77,25 +81,28 @@ const AddGroceryForm: React.FC<AddGroceryFormProps> = ({ addGroceryItem }) => {
           </div>
           
           <div className="space-y-2">
-            <label htmlFor="notes" className="text-sm font-medium">
+            <Label htmlFor="notes">
               Notes (Optional)
-            </label>
+            </Label>
             <Textarea
               id="notes"
-              placeholder="Whole milk, not 2%"
+              placeholder="Any special instructions..."
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              rows={3}
+              rows={2}
             />
           </div>
           
-          <div className="flex justify-end gap-2">
+          <div className="flex justify-end gap-2 pt-2">
             <DialogClose asChild>
               <Button type="button" variant="outline">
                 Cancel
               </Button>
             </DialogClose>
-            <Button type="submit">Add Item</Button>
+            <Button type="submit" className="gap-1">
+              <ListPlus className="h-4 w-4" />
+              Add Item
+            </Button>
           </div>
         </form>
       </DialogContent>
