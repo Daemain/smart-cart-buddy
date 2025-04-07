@@ -358,7 +358,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           </div> : <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                             <div className="flex flex-col items-center gap-2">
                               <Image className="h-8 w-8 text-muted-foreground" />
-                              <p className="font-medium text-xs">
+                              <p className="text-sm font-medium">
                                 Click to upload a recipe image
                               </p>
                               <p className="text-xs text-muted-foreground">
