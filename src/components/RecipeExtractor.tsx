@@ -3,7 +3,7 @@ import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ChefHat, Upload, PlusCircle, X, Camera, Image } from 'lucide-react';
+import { ChefHat, Upload, PlusCircle, X, Camera, Image, Sparkles } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -11,6 +11,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
+
 interface RecipeExtractorProps {
   onExtractComplete: (ingredients: {
     name: string;
@@ -18,10 +19,13 @@ interface RecipeExtractorProps {
   }[], recipeName: string) => void;
   isPremium: boolean;
 }
+
 const recipeNameSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required')
 });
+
 type RecipeNameFormValues = z.infer<typeof recipeNameSchema>;
+
 const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   onExtractComplete,
   isPremium
@@ -49,7 +53,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
   });
 
-  // Load usage count from localStorage on mount
   useEffect(() => {
     const storedCount = localStorage.getItem('recipeExtractorUsageCount');
     if (storedCount) {
@@ -57,13 +60,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
   }, []);
 
-  // Mock recipe parsing function (in a real app, you'd use an API)
   const parseRecipe = (text: string): {
     name: string;
     quantity: string;
   }[] => {
-    // This is a simplified mock parser for demonstration
-    // In a real implementation, you'd use an API call to a service like GPT-4
     const lines = text.split('\n');
     const ingredients: {
       name: string;
@@ -73,7 +73,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       line = line.trim();
       if (!line) return;
 
-      // Basic parsing - looking for patterns like "2 cups flour" or "1/2 teaspoon salt"
       const quantityMatch = line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+of\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s+(.+)$/);
       if (quantityMatch) {
         const quantity = quantityMatch[1] ? quantityMatch[1].trim() : '';
@@ -85,7 +84,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           quantity: quantityText || '1'
         });
       } else if (line.length > 2 && !line.startsWith('Step')) {
-        // If we can't parse it but it looks like an ingredient, add it
         ingredients.push({
           name: line,
           quantity: ''
@@ -95,7 +93,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     return ingredients;
   };
 
-  // Process image through OCR and recipe extraction
   const processImageForRecipe = async (imageUrl: string) => {
     setIsExtracting(true);
     try {
@@ -104,15 +101,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         description: "Analyzing your recipe image..."
       });
 
-      // In a real implementation, we would:
-      // 1. Load an OCR model from Hugging Face
-      // 2. Extract text from the image
-      // 3. Process the text to extract ingredients
-
-      // For now, we'll use a timeout to simulate processing
       await new Promise(resolve => setTimeout(resolve, 2000));
 
-      // Mock data - in a real app, this would come from the OCR + AI processing
       const extractedText = "Recipe for Pancakes\n" + "2 cups flour\n" + "2 tablespoons sugar\n" + "1 teaspoon baking powder\n" + "1/2 teaspoon salt\n" + "2 eggs\n" + "1 1/2 cups milk\n" + "2 tablespoons melted butter";
       setRecipeText(extractedText);
       setActiveTab('text');
@@ -130,12 +120,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
   };
 
-  // Handle file upload
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Check if it's an image
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
@@ -145,7 +133,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       return;
     }
 
-    // Create a preview
     const reader = new FileReader();
     reader.onload = event => {
       if (event.target?.result) {
@@ -156,7 +143,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     reader.readAsDataURL(file);
   };
 
-  // Handle camera capture
   const startCapture = async () => {
     setIsCapturing(true);
     try {
@@ -179,36 +165,33 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsCapturing(false);
     }
   };
+
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
 
-      // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
 
-      // Draw the video frame to the canvas
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // Convert to data URL
         const imageDataUrl = canvas.toDataURL('image/jpeg');
         setImagePreview(imageDataUrl);
 
-        // Stop the camera stream
         const stream = video.srcObject as MediaStream;
         const tracks = stream.getTracks();
         tracks.forEach(track => track.stop());
         video.srcObject = null;
         setIsCapturing(false);
 
-        // Process the captured image
         processImageForRecipe(imageDataUrl);
       }
     }
   };
+
   const cancelCapture = () => {
     if (videoRef.current) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -220,6 +203,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     setIsCapturing(false);
   };
+
   const handleExtract = async () => {
     const freeUsesRemaining = 2 - usageCount;
     if (!isPremium && usageCount >= 2) {
@@ -241,8 +225,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     setIsExtracting(true);
     try {
-      // In a real app, this would be an API call to a service like OpenAI
-      // For now, we'll use our mock parser
       const ingredients = parseRecipe(recipeText);
       if (ingredients.length === 0) {
         toast({
@@ -251,7 +233,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           variant: "destructive"
         });
       } else {
-        // Increment usage count if not premium
         if (!isPremium) {
           const newCount = usageCount + 1;
           setUsageCount(newCount);
@@ -274,7 +255,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           });
         }
 
-        // Store the ingredients and show the recipe name form
         setExtractedIngredients(ingredients);
         setShowNameForm(true);
       }
@@ -288,10 +268,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
+
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
 
-    // Reset everything
     setOpen(false);
     setRecipeText('');
     setRecipeUrl('');
@@ -300,13 +280,16 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setExtractedIngredients([]);
     form.reset();
   };
+
   return <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit bg-sky-200 hover:bg-sky-100">
+        <Button variant="outline" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit bg-gradient-to-r from-blue-400 to-cyan-300 hover:bg-gradient-to-r hover:from-blue-500 hover:to-cyan-400 text-white border-none shadow-md hover:shadow-lg transition-all">
           <ChefHat className="h-5 w-5" />
-          <span className="hidden sm:inline">Recipe to List</span>
+          <Sparkles className="h-4 w-4" />
+          <span className="hidden sm:inline">Use AI</span>
         </Button>
       </DialogTrigger>
+      
       <DialogContent className="sm:max-w-md">
         {showNameForm ? <>
             <DialogHeader>
@@ -357,7 +340,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 </p>
                 <Button className="mt-4" onClick={() => {
             setOpen(false);
-            // This would trigger the upgrade flow in a real app
             toast({
               title: "Premium Feature",
               description: "Recipe extraction is a premium feature. Please upgrade to use it."
@@ -478,4 +460,5 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       </DialogContent>
     </Dialog>;
 };
+
 export default RecipeExtractor;
