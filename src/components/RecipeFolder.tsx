@@ -9,12 +9,7 @@ import {
 } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface RecipeFolderProps {
   recipes: Recipe[];
@@ -24,6 +19,7 @@ interface RecipeFolderProps {
 const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
+  const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
 
   if (recipes.length === 0) {
     return null;
@@ -33,6 +29,14 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => 
     setExpandedRecipes(prev => ({
       ...prev,
       [recipeId]: !prev[recipeId]
+    }));
+  };
+
+  const toggleIngredientCheck = (recipeId: string, ingredientIndex: number) => {
+    const key = `${recipeId}-${ingredientIndex}`;
+    setCheckedIngredients(prev => ({
+      ...prev,
+      [key]: !prev[key]
     }));
   };
 
@@ -86,11 +90,21 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => 
                       <ul className="space-y-1">
                         {recipe.ingredients.map((ingredient, index) => (
                           <li key={index} className="text-sm flex items-center">
-                            <span className="w-4 h-4 inline-flex items-center justify-center text-xs text-muted-foreground mr-2">•</span>
-                            <span className="font-medium">{ingredient.name}</span>
-                            {ingredient.quantity && (
-                              <span className="text-muted-foreground ml-1">{ingredient.quantity}</span>
-                            )}
+                            <Checkbox 
+                              checked={!!checkedIngredients[`${recipe.id}-${index}`]}
+                              onCheckedChange={() => toggleIngredientCheck(recipe.id, index)}
+                              className="mr-2"
+                              id={`ingredient-${recipe.id}-${index}`}
+                            />
+                            <label 
+                              htmlFor={`ingredient-${recipe.id}-${index}`}
+                              className={`flex items-center cursor-pointer ${checkedIngredients[`${recipe.id}-${index}`] ? 'line-through text-muted-foreground' : ''}`}
+                            >
+                              <span className="font-medium">{ingredient.name}</span>
+                              {ingredient.quantity && (
+                                <span className="text-muted-foreground ml-1">{ingredient.quantity}</span>
+                              )}
+                            </label>
                           </li>
                         ))}
                       </ul>
