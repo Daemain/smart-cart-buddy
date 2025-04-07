@@ -17,12 +17,21 @@ import {
 } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { pipeline } from '@huggingface/transformers';
+import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
 
 interface RecipeExtractorProps {
-  onExtractComplete: (ingredients: { name: string; quantity: string }[]) => void;
+  onExtractComplete: (ingredients: { name: string; quantity: string }[], recipeName: string) => void;
   isPremium: boolean;
 }
+
+const recipeNameSchema = z.object({
+  recipeName: z.string().min(1, 'Recipe name is required'),
+});
+
+type RecipeNameFormValues = z.infer<typeof recipeNameSchema>;
 
 const RecipeExtractor: React.FC<RecipeExtractorProps> = ({ 
   onExtractComplete,
@@ -36,9 +45,18 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const [activeTab, setActiveTab] = useState('text');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const [extractedIngredients, setExtractedIngredients] = useState<{ name: string; quantity: string }[]>([]);
+  const [showNameForm, setShowNameForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
+  const form = useForm<RecipeNameFormValues>({
+    resolver: zodResolver(recipeNameSchema),
+    defaultValues: {
+      recipeName: '',
+    },
+  });
 
   // Load usage count from localStorage on mount
   useEffect(() => {
@@ -282,11 +300,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           });
         }
         
-        onExtractComplete(ingredients);
-        setOpen(false);
-        setRecipeText('');
-        setRecipeUrl('');
-        setImagePreview(null);
+        // Store the ingredients and show the recipe name form
+        setExtractedIngredients(ingredients);
+        setShowNameForm(true);
       }
     } catch (error) {
       toast({
@@ -299,6 +315,19 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
   };
 
+  const onSubmitRecipeName = (values: RecipeNameFormValues) => {
+    onExtractComplete(extractedIngredients, values.recipeName);
+    
+    // Reset everything
+    setOpen(false);
+    setRecipeText('');
+    setRecipeUrl('');
+    setImagePreview(null);
+    setShowNameForm(false);
+    setExtractedIngredients([]);
+    form.reset();
+  };
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
@@ -308,203 +337,247 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Extract Grocery List from Recipe</DialogTitle>
-          <DialogDescription>
-            {(!isPremium && usageCount >= 2) 
-              ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." 
-              : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
-          </DialogDescription>
-        </DialogHeader>
-        
-        {(!isPremium && usageCount >= 2) ? (
-          <div className="flex flex-col items-center justify-center py-6">
-            <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
-            <p className="text-center text-muted-foreground">
-              Upgrade to premium to automatically extract ingredients from recipes
-            </p>
-            <Button 
-              className="mt-4" 
-              onClick={() => {
-                setOpen(false);
-                // This would trigger the upgrade flow in a real app
-                toast({
-                  title: "Premium Feature",
-                  description: "Recipe extraction is a premium feature. Please upgrade to use it.",
-                });
-              }}
-            >
-              Upgrade to Premium
-            </Button>
-          </div>
+        {showNameForm ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Name Your Recipe</DialogTitle>
+              <DialogDescription>
+                Give your recipe a name to save it to your collection
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmitRecipeName)} className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="recipeName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Recipe Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="My Delicious Recipe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                <div className="text-sm text-muted-foreground">
+                  {extractedIngredients.length} ingredients extracted
+                </div>
+                
+                <DialogFooter className="mt-4">
+                  <Button type="button" variant="outline" onClick={() => setShowNameForm(false)}>
+                    Back
+                  </Button>
+                  <Button type="submit">
+                    Save Recipe
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </>
         ) : (
           <>
-            {isCapturing ? (
-              <div className="grid gap-4">
-                <div className="relative">
-                  <video 
-                    ref={videoRef} 
-                    className="w-full h-64 object-cover rounded-md bg-muted"
-                    autoPlay 
-                    playsInline
-                  ></video>
-                  <canvas ref={canvasRef} className="hidden"></canvas>
-                </div>
-                <div className="flex justify-between gap-2">
-                  <Button variant="outline" onClick={cancelCapture}>
-                    Cancel
-                  </Button>
-                  <Button onClick={captureImage}>
-                    Take Photo
-                  </Button>
-                </div>
+            <DialogHeader>
+              <DialogTitle>Extract Grocery List from Recipe</DialogTitle>
+              <DialogDescription>
+                {(!isPremium && usageCount >= 2) 
+                  ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." 
+                  : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
+              </DialogDescription>
+            </DialogHeader>
+            
+            {(!isPremium && usageCount >= 2) ? (
+              <div className="flex flex-col items-center justify-center py-6">
+                <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
+                <p className="text-center text-muted-foreground">
+                  Upgrade to premium to automatically extract ingredients from recipes
+                </p>
+                <Button 
+                  className="mt-4" 
+                  onClick={() => {
+                    setOpen(false);
+                    // This would trigger the upgrade flow in a real app
+                    toast({
+                      title: "Premium Feature",
+                      description: "Recipe extraction is a premium feature. Please upgrade to use it.",
+                    });
+                  }}
+                >
+                  Upgrade to Premium
+                </Button>
               </div>
             ) : (
-              <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
-                <TabsList className="grid grid-cols-3 mb-4">
-                  <TabsTrigger value="text">Text</TabsTrigger>
-                  <TabsTrigger value="image">Upload</TabsTrigger>
-                  <TabsTrigger value="camera">Camera</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="text" className="mt-0">
-                  <div className="grid gap-2">
-                    <label htmlFor="recipe-text" className="text-sm font-medium">
-                      Paste your recipe
-                    </label>
-                    <Textarea
-                      id="recipe-text"
-                      placeholder="Paste your recipe ingredients and instructions here..."
-                      rows={6}
-                      value={recipeText}
-                      onChange={(e) => setRecipeText(e.target.value)}
-                    />
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="image" className="mt-0">
+              <>
+                {isCapturing ? (
                   <div className="grid gap-4">
-                    {imagePreview ? (
-                      <div className="relative">
-                        <img 
-                          src={imagePreview} 
-                          alt="Recipe" 
-                          className="w-full max-h-48 object-contain rounded-md border"
+                    <div className="relative">
+                      <video 
+                        ref={videoRef} 
+                        className="w-full h-64 object-cover rounded-md bg-muted"
+                        autoPlay 
+                        playsInline
+                      ></video>
+                      <canvas ref={canvasRef} className="hidden"></canvas>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <Button variant="outline" onClick={cancelCapture}>
+                        Cancel
+                      </Button>
+                      <Button onClick={captureImage}>
+                        Take Photo
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                    <TabsList className="grid grid-cols-3 mb-4">
+                      <TabsTrigger value="text">Text</TabsTrigger>
+                      <TabsTrigger value="image">Upload</TabsTrigger>
+                      <TabsTrigger value="camera">Camera</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="text" className="mt-0">
+                      <div className="grid gap-2">
+                        <label htmlFor="recipe-text" className="text-sm font-medium">
+                          Paste your recipe
+                        </label>
+                        <Textarea
+                          id="recipe-text"
+                          placeholder="Paste your recipe ingredients and instructions here..."
+                          rows={6}
+                          value={recipeText}
+                          onChange={(e) => setRecipeText(e.target.value)}
                         />
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="image" className="mt-0">
+                      <div className="grid gap-4">
+                        {imagePreview ? (
+                          <div className="relative">
+                            <img 
+                              src={imagePreview} 
+                              alt="Recipe" 
+                              className="w-full max-h-48 object-contain rounded-md border"
+                            />
+                            <Button 
+                              variant="outline" 
+                              size="icon"
+                              className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80"
+                              onClick={() => setImagePreview(null)}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div 
+                            className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <div className="flex flex-col items-center gap-2">
+                              <Image className="h-8 w-8 text-muted-foreground" />
+                              <p className="text-sm font-medium">
+                                Click to upload a recipe image
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                or drag and drop here
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        <input 
+                          type="file" 
+                          ref={fileInputRef}
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleFileUpload}
+                        />
+                        {!imagePreview && (
+                          <Button 
+                            variant="outline" 
+                            className="w-full"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <Upload className="mr-2 h-4 w-4" />
+                            Choose File
+                          </Button>
+                        )}
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="camera" className="mt-0">
+                      <div className="grid gap-4">
+                        <div 
+                          className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                          onClick={startCapture}
+                        >
+                          <div className="flex flex-col items-center gap-2">
+                            <Camera className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium">
+                              Take a photo of your recipe
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Use your device camera to capture a recipe
+                            </p>
+                          </div>
+                        </div>
                         <Button 
                           variant="outline" 
-                          size="icon"
-                          className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80"
-                          onClick={() => setImagePreview(null)}
+                          className="w-full"
+                          onClick={startCapture}
                         >
-                          <X className="h-4 w-4" />
+                          <Camera className="mr-2 h-4 w-4" />
+                          Open Camera
                         </Button>
                       </div>
-                    ) : (
-                      <div 
-                        className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <div className="flex flex-col items-center gap-2">
-                          <Image className="h-8 w-8 text-muted-foreground" />
-                          <p className="text-sm font-medium">
-                            Click to upload a recipe image
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            or drag and drop here
-                          </p>
-                        </div>
+                    </TabsContent>
+                    
+                    <div className="mt-4 relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
                       </div>
-                    )}
-                    <input 
-                      type="file" 
-                      ref={fileInputRef}
-                      className="hidden"
-                      accept="image/*"
-                      onChange={handleFileUpload}
-                    />
-                    {!imagePreview && (
-                      <Button 
-                        variant="outline" 
-                        className="w-full"
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <Upload className="mr-2 h-4 w-4" />
-                        Choose File
-                      </Button>
-                    )}
-                  </div>
-                </TabsContent>
-                
-                <TabsContent value="camera" className="mt-0">
-                  <div className="grid gap-4">
-                    <div 
-                      className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                      onClick={startCapture}
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <Camera className="h-8 w-8 text-muted-foreground" />
-                        <p className="text-sm font-medium">
-                          Take a photo of your recipe
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Use your device camera to capture a recipe
-                        </p>
+                      <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-background px-2 text-muted-foreground">
+                          Or
+                        </span>
                       </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      className="w-full"
-                      onClick={startCapture}
-                    >
-                      <Camera className="mr-2 h-4 w-4" />
-                      Open Camera
-                    </Button>
-                  </div>
-                </TabsContent>
+                    
+                    <div className="grid gap-2 mt-4">
+                      <label htmlFor="recipe-url" className="text-sm font-medium">
+                        Recipe URL (coming soon)
+                      </label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="recipe-url"
+                          placeholder="https://example.com/recipe"
+                          value={recipeUrl}
+                          onChange={(e) => setRecipeUrl(e.target.value)}
+                          disabled={true}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        URL parsing will be available in a future update
+                      </p>
+                    </div>
+                  </Tabs>
+                )}
                 
-                <div className="mt-4 relative">
-                  <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                      Or
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="grid gap-2 mt-4">
-                  <label htmlFor="recipe-url" className="text-sm font-medium">
-                    Recipe URL (coming soon)
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="recipe-url"
-                      placeholder="https://example.com/recipe"
-                      value={recipeUrl}
-                      onChange={(e) => setRecipeUrl(e.target.value)}
-                      disabled={true}
-                    />
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    URL parsing will be available in a future update
-                  </p>
-                </div>
-              </Tabs>
+                <DialogFooter className="mt-4">
+                  <Button variant="outline" onClick={() => setOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={handleExtract} 
+                    disabled={isExtracting || (!recipeText && !recipeUrl && !imagePreview)}
+                  >
+                    {isExtracting ? "Extracting..." : "Extract Ingredients"}
+                  </Button>
+                </DialogFooter>
+              </>
             )}
-            
-            <DialogFooter className="mt-4">
-              <Button variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button 
-                onClick={handleExtract} 
-                disabled={isExtracting || (!recipeText && !recipeUrl && !imagePreview)}
-              >
-                {isExtracting ? "Extracting..." : "Extract Ingredients"}
-              </Button>
-            </DialogFooter>
           </>
         )}
       </DialogContent>

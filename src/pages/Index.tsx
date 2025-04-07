@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -7,8 +8,9 @@ import EmptyState from '@/components/EmptyState';
 import SuggestedItems from '@/components/SuggestedItems';
 import PremiumBanner from '@/components/PremiumBanner';
 import RecipeExtractor from '@/components/RecipeExtractor';
+import RecipeFolder from '@/components/RecipeFolder';
 import { ShoppingCart, Menu } from 'lucide-react';
-import { GroceryCategory } from '@/types/grocery';
+import { GroceryCategory, Recipe } from '@/types/grocery';
 
 const Index = () => {
   const {
@@ -23,6 +25,9 @@ const Index = () => {
     toggleFrequent,
     reuseItem,
     suggestedItems,
+    saveRecipe,
+    recipes,
+    addRecipeToList
   } = useGroceryList();
 
   const [showPremiumBanner, setShowPremiumBanner] = useState(false);
@@ -41,9 +46,13 @@ const Index = () => {
     suggested: suggestedItems?.length || 0,
   };
 
-  const handleRecipeExtracted = (ingredients: { name: string; quantity: string }[]) => {
+  const handleRecipeExtracted = (ingredients: { name: string; quantity: string }[], recipeName: string) => {
+    // Save the recipe first
+    const newRecipe = saveRecipe(recipeName, ingredients);
+    
+    // Then add all ingredients to the grocery list with a reference to the recipe
     ingredients.forEach(ingredient => {
-      addGroceryItem(ingredient.name, ingredient.quantity || '1');
+      addGroceryItem(ingredient.name, ingredient.quantity || '1', undefined, newRecipe.id);
     });
   };
 
@@ -53,7 +62,7 @@ const Index = () => {
         <div className="max-w-md mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-primary rounded-full p-1.5 text-primary-foreground">
+              <div className="bg-primary rounded-full p-1 text-primary-foreground">
                 <ShoppingCart className="h-4 w-4" />
               </div>
               <h1 className="text-xl font-bold">Smart Cart Buddy</h1>
@@ -99,30 +108,37 @@ const Index = () => {
           </>
         )}
         
-        <div className="flex justify-start my-3">
-          <RecipeExtractor 
-            onExtractComplete={handleRecipeExtracted} 
-            isPremium={isPremium} 
-          />
-        </div>
-        
         {(activeCategory !== 'suggested' || isPremium) && (
-          <div className="space-y-2 mt-1">
-            {groceries.length === 0 ? (
-              <EmptyState category={activeCategory} isPremium={isPremium} />
-            ) : (
-              groceries.map(item => (
-                <GroceryItem
-                  key={item.id}
-                  item={item}
-                  toggleCompletion={toggleCompletion}
-                  toggleFrequent={toggleFrequent}
-                  deleteItem={deleteItem}
-                  reuseItem={activeCategory === 'frequent' ? reuseItem : undefined}
-                />
-              ))
-            )}
-          </div>
+          <>
+            <div className="flex justify-start my-3">
+              <RecipeExtractor 
+                onExtractComplete={handleRecipeExtracted} 
+                isPremium={isPremium} 
+              />
+            </div>
+            
+            <RecipeFolder 
+              recipes={recipes}
+              onAddToList={addRecipeToList}
+            />
+            
+            <div className="space-y-2 mt-1">
+              {groceries.length === 0 ? (
+                <EmptyState category={activeCategory} isPremium={isPremium} />
+              ) : (
+                groceries.map(item => (
+                  <GroceryItem
+                    key={item.id}
+                    item={item}
+                    toggleCompletion={toggleCompletion}
+                    toggleFrequent={toggleFrequent}
+                    deleteItem={deleteItem}
+                    reuseItem={activeCategory === 'frequent' ? reuseItem : undefined}
+                  />
+                ))
+              )}
+            </div>
+          </>
         )}
       </main>
     </div>

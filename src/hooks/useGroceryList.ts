@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
-import { GroceryItem, GroceryList, GroceryCategory } from '@/types/grocery';
+import { GroceryItem, GroceryList, GroceryCategory, Recipe } from '@/types/grocery';
 import { 
   loadGroceries, 
   saveGroceries, 
@@ -8,18 +8,24 @@ import {
   updateGroceryItem,
   deleteGroceryItem,
   toggleItemCompletion, 
-  toggleItemFrequent 
+  toggleItemFrequent,
+  loadRecipes,
+  saveRecipe as saveRecipeToStorage,
 } from '@/services/groceryService';
 import { toast } from '@/components/ui/use-toast';
 
 export const useGroceryList = () => {
   const [groceries, setGroceries] = useState<GroceryList>([]);
+  const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [activeCategory, setActiveCategory] = useState<GroceryCategory>('all');
   
-  // Load groceries from localStorage on component mount
+  // Load groceries and recipes from localStorage on component mount
   useEffect(() => {
     const items = loadGroceries();
     setGroceries(items);
+    
+    const savedRecipes = loadRecipes();
+    setRecipes(savedRecipes);
   }, []);
   
   // Filter groceries based on active category
@@ -50,7 +56,7 @@ export const useGroceryList = () => {
   }, [groceries]);
   
   // Add a new grocery item
-  const addGroceryItem = (name: string, quantity: string, notes?: string) => {
+  const addGroceryItem = (name: string, quantity: string, notes?: string, recipeId?: string) => {
     try {
       const newItem = addItem({
         name,
@@ -58,6 +64,7 @@ export const useGroceryList = () => {
         notes,
         isCompleted: false,
         isFrequent: false,
+        recipeId,
       });
       
       setGroceries(prev => [newItem, ...prev]);
@@ -72,6 +79,41 @@ export const useGroceryList = () => {
         variant: "destructive",
       });
     }
+  };
+  
+  // Save a new recipe
+  const saveRecipe = (title: string, ingredients: { name: string; quantity: string }[]): Recipe => {
+    // Create a new recipe
+    const newRecipe: Recipe = {
+      id: `recipe-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title,
+      ingredients,
+      createdAt: Date.now(),
+    };
+    
+    // Add recipe to state and localStorage
+    const updatedRecipes = [...recipes, newRecipe];
+    setRecipes(updatedRecipes);
+    saveRecipeToStorage(updatedRecipes);
+    
+    toast({
+      title: "Recipe saved",
+      description: `"${title}" has been saved to your recipes.`,
+    });
+    
+    return newRecipe;
+  };
+  
+  // Add all ingredients from a recipe to the grocery list
+  const addRecipeToList = (recipe: Recipe) => {
+    recipe.ingredients.forEach(ingredient => {
+      addGroceryItem(ingredient.name, ingredient.quantity, undefined, recipe.id);
+    });
+    
+    toast({
+      title: "Recipe added to list",
+      description: `${recipe.ingredients.length} ingredients from "${recipe.title}" have been added to your grocery list.`,
+    });
   };
   
   // Update existing grocery item
@@ -180,5 +222,8 @@ export const useGroceryList = () => {
     toggleFrequent,
     reuseItem,
     suggestedItems,
+    recipes,
+    saveRecipe,
+    addRecipeToList,
   };
 };

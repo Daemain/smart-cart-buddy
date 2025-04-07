@@ -10,6 +10,7 @@ export interface GroceryItem {
   category?: string; // Optional category for organization
   lastPurchased?: number; // For auto-suggestions based on history
   fromRecipe?: string; // To track which recipe an item came from
+  recipeId?: string; // Link to the recipe this item belongs to
 }
 
 export type GroceryList = GroceryItem[];
@@ -33,6 +34,7 @@ export interface PremiumFeatures {
 }
 
 export interface Recipe {
+  id: string;
   title: string;
   ingredients: {
     name: string;
@@ -42,4 +44,9 @@ export interface Recipe {
   instructions?: string[];
   url?: string;
   imageUrl?: string;
+  createdAt: number;
+}
+
+export interface RecipeFolder {
+  recipes: Recipe[];
 }

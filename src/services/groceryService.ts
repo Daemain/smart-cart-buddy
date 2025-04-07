@@ -1,5 +1,4 @@
-
-import { GroceryItem, GroceryList } from "@/types/grocery";
+import { GroceryItem, GroceryList, Recipe } from '@/types/grocery';
 
 const STORAGE_KEY = 'smart-cart-buddy-items';
 
@@ -12,6 +11,26 @@ export const loadGroceries = (): GroceryList => {
 // Save groceries to localStorage
 export const saveGroceries = (groceries: GroceryList): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(groceries));
+};
+
+// Load recipes from localStorage
+export const loadRecipes = (): Recipe[] => {
+  try {
+    const savedRecipes = localStorage.getItem('recipes');
+    return savedRecipes ? JSON.parse(savedRecipes) : [];
+  } catch (error) {
+    console.error('Failed to load recipes from localStorage', error);
+    return [];
+  }
+};
+
+// Save recipes to localStorage
+export const saveRecipe = (recipes: Recipe[]): void => {
+  try {
+    localStorage.setItem('recipes', JSON.stringify(recipes));
+  } catch (error) {
+    console.error('Failed to save recipes to localStorage', error);
+  }
 };
 
 // Add a new grocery item
