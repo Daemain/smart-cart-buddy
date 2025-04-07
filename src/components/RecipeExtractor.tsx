@@ -1,39 +1,28 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { ChefHat, Upload, PlusCircle, X, Camera, Image } from 'lucide-react';
-import { 
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogClose
-} from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-
 interface RecipeExtractorProps {
-  onExtractComplete: (ingredients: { name: string; quantity: string }[], recipeName: string) => void;
+  onExtractComplete: (ingredients: {
+    name: string;
+    quantity: string;
+  }[], recipeName: string) => void;
   isPremium: boolean;
 }
-
 const recipeNameSchema = z.object({
-  recipeName: z.string().min(1, 'Recipe name is required'),
+  recipeName: z.string().min(1, 'Recipe name is required')
 });
-
 type RecipeNameFormValues = z.infer<typeof recipeNameSchema>;
-
-const RecipeExtractor: React.FC<RecipeExtractorProps> = ({ 
+const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   onExtractComplete,
   isPremium
 }) => {
@@ -45,17 +34,19 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const [activeTab, setActiveTab] = useState('text');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
-  const [extractedIngredients, setExtractedIngredients] = useState<{ name: string; quantity: string }[]>([]);
+  const [extractedIngredients, setExtractedIngredients] = useState<{
+    name: string;
+    quantity: string;
+  }[]>([]);
   const [showNameForm, setShowNameForm] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
   const form = useForm<RecipeNameFormValues>({
     resolver: zodResolver(recipeNameSchema),
     defaultValues: {
-      recipeName: '',
-    },
+      recipeName: ''
+    }
   });
 
   // Load usage count from localStorage on mount
@@ -67,79 +58,71 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   }, []);
 
   // Mock recipe parsing function (in a real app, you'd use an API)
-  const parseRecipe = (text: string): { name: string; quantity: string }[] => {
+  const parseRecipe = (text: string): {
+    name: string;
+    quantity: string;
+  }[] => {
     // This is a simplified mock parser for demonstration
     // In a real implementation, you'd use an API call to a service like GPT-4
     const lines = text.split('\n');
-    const ingredients: { name: string; quantity: string }[] = [];
-    
+    const ingredients: {
+      name: string;
+      quantity: string;
+    }[] = [];
     lines.forEach(line => {
       line = line.trim();
       if (!line) return;
-      
+
       // Basic parsing - looking for patterns like "2 cups flour" or "1/2 teaspoon salt"
-      const quantityMatch = line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+of\s+(.+)$/) || 
-                          line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+(.+)$/) ||
-                          line.match(/^([\d\/\.\s]+)?\s+(.+)$/);
-      
+      const quantityMatch = line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+of\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s+(.+)$/);
       if (quantityMatch) {
         const quantity = quantityMatch[1] ? quantityMatch[1].trim() : '';
         const unit = quantityMatch[2] ? quantityMatch[2].trim() : '';
         const name = quantityMatch[3] ? quantityMatch[3].trim() : quantityMatch[2];
-        
         const quantityText = [quantity, unit].filter(Boolean).join(' ');
-        ingredients.push({ 
-          name: name, 
+        ingredients.push({
+          name: name,
           quantity: quantityText || '1'
         });
       } else if (line.length > 2 && !line.startsWith('Step')) {
         // If we can't parse it but it looks like an ingredient, add it
-        ingredients.push({ name: line, quantity: '' });
+        ingredients.push({
+          name: line,
+          quantity: ''
+        });
       }
     });
-    
     return ingredients;
   };
 
   // Process image through OCR and recipe extraction
   const processImageForRecipe = async (imageUrl: string) => {
     setIsExtracting(true);
-    
     try {
       toast({
         title: "Processing image",
         description: "Analyzing your recipe image..."
       });
-      
+
       // In a real implementation, we would:
       // 1. Load an OCR model from Hugging Face
       // 2. Extract text from the image
       // 3. Process the text to extract ingredients
-      
+
       // For now, we'll use a timeout to simulate processing
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       // Mock data - in a real app, this would come from the OCR + AI processing
-      const extractedText = 
-        "Recipe for Pancakes\n" +
-        "2 cups flour\n" +
-        "2 tablespoons sugar\n" +
-        "1 teaspoon baking powder\n" +
-        "1/2 teaspoon salt\n" +
-        "2 eggs\n" +
-        "1 1/2 cups milk\n" +
-        "2 tablespoons melted butter";
-      
+      const extractedText = "Recipe for Pancakes\n" + "2 cups flour\n" + "2 tablespoons sugar\n" + "1 teaspoon baking powder\n" + "1/2 teaspoon salt\n" + "2 eggs\n" + "1 1/2 cups milk\n" + "2 tablespoons melted butter";
       setRecipeText(extractedText);
       setActiveTab('text');
-      
       return extractedText;
     } catch (error) {
       console.error("Error processing image:", error);
       toast({
         title: "Image processing failed",
         description: "We couldn't extract text from this image. Please try again or enter the recipe manually.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return null;
     } finally {
@@ -151,20 +134,20 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    
+
     // Check if it's an image
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
         description: "Please upload an image file.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-    
+
     // Create a preview
     const reader = new FileReader();
-    reader.onload = (event) => {
+    reader.onload = event => {
       if (event.target?.result) {
         setImagePreview(event.target.result as string);
         processImageForRecipe(event.target.result as string);
@@ -177,10 +160,11 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const startCapture = async () => {
     setIsCapturing(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: 'environment' } 
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: 'environment'
+        }
       });
-      
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.play();
@@ -190,44 +174,41 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       toast({
         title: "Camera access failed",
         description: "We couldn't access your camera. Please check your permissions or try uploading an image instead.",
-        variant: "destructive",
+        variant: "destructive"
       });
       setIsCapturing(false);
     }
   };
-
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
       const canvas = canvasRef.current;
-      
+
       // Set canvas dimensions to match video
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
-      
+
       // Draw the video frame to the canvas
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        
+
         // Convert to data URL
         const imageDataUrl = canvas.toDataURL('image/jpeg');
         setImagePreview(imageDataUrl);
-        
+
         // Stop the camera stream
         const stream = video.srcObject as MediaStream;
         const tracks = stream.getTracks();
         tracks.forEach(track => track.stop());
         video.srcObject = null;
-        
         setIsCapturing(false);
-        
+
         // Process the captured image
         processImageForRecipe(imageDataUrl);
       }
     }
   };
-
   const cancelCapture = () => {
     if (videoRef.current) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -239,41 +220,35 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     setIsCapturing(false);
   };
-
   const handleExtract = async () => {
     const freeUsesRemaining = 2 - usageCount;
-    
     if (!isPremium && usageCount >= 2) {
       toast({
         title: "Free Tries Used",
         description: `You've used your ${usageCount} free recipe extractions. Upgrade to premium for unlimited use.`,
-        variant: "destructive",
+        variant: "destructive"
       });
       setOpen(false);
       return;
     }
-
     if (!recipeText && !recipeUrl && !imagePreview) {
       toast({
         title: "Missing Information",
         description: "Please enter a recipe, upload an image, or provide a URL to extract ingredients.",
-        variant: "destructive",
+        variant: "destructive"
       });
       return;
     }
-
     setIsExtracting(true);
-
     try {
       // In a real app, this would be an API call to a service like OpenAI
       // For now, we'll use our mock parser
       const ingredients = parseRecipe(recipeText);
-      
       if (ingredients.length === 0) {
         toast({
           title: "No ingredients found",
           description: "We couldn't extract any ingredients from the text. Please try reformatting or use a different recipe.",
-          variant: "destructive",
+          variant: "destructive"
         });
       } else {
         // Increment usage count if not premium
@@ -281,25 +256,24 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           const newCount = usageCount + 1;
           setUsageCount(newCount);
           localStorage.setItem('recipeExtractorUsageCount', newCount.toString());
-          
           if (freeUsesRemaining === 1) {
             toast({
               title: "Recipe extracted",
-              description: `Found ${ingredients.length} ingredients. This was your last free extraction.`,
+              description: `Found ${ingredients.length} ingredients. This was your last free extraction.`
             });
           } else {
             toast({
               title: "Recipe extracted",
-              description: `Found ${ingredients.length} ingredients. You have ${freeUsesRemaining - 1} free extractions left.`,
+              description: `Found ${ingredients.length} ingredients. You have ${freeUsesRemaining - 1} free extractions left.`
             });
           }
         } else {
           toast({
             title: "Recipe extracted",
-            description: `Found ${ingredients.length} ingredients in your recipe.`,
+            description: `Found ${ingredients.length} ingredients in your recipe.`
           });
         }
-        
+
         // Store the ingredients and show the recipe name form
         setExtractedIngredients(ingredients);
         setShowNameForm(true);
@@ -308,16 +282,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       toast({
         title: "Extraction failed",
         description: "There was an error extracting the recipe. Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsExtracting(false);
     }
   };
-
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
-    
+
     // Reset everything
     setOpen(false);
     setRecipeText('');
@@ -327,18 +300,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setExtractedIngredients([]);
     form.reset();
   };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
+  return <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit">
+        <Button variant="outline" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit bg-sky-200 hover:bg-sky-100">
           <ChefHat className="h-5 w-5" />
           <span className="hidden sm:inline">Recipe to List</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
-        {showNameForm ? (
-          <>
+        {showNameForm ? <>
             <DialogHeader>
               <DialogTitle>Name Your Recipe</DialogTitle>
               <DialogDescription>
@@ -348,19 +318,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmitRecipeName)} className="space-y-4">
-                <FormField
-                  control={form.control}
-                  name="recipeName"
-                  render={({ field }) => (
-                    <FormItem>
+                <FormField control={form.control} name="recipeName" render={({
+              field
+            }) => <FormItem>
                       <FormLabel>Recipe Name</FormLabel>
                       <FormControl>
                         <Input placeholder="My Delicious Recipe" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                    </FormItem>} />
                 
                 <div className="text-sm text-muted-foreground">
                   {extractedIngredients.length} ingredients extracted
@@ -376,49 +342,33 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 </DialogFooter>
               </form>
             </Form>
-          </>
-        ) : (
-          <>
+          </> : <>
             <DialogHeader>
               <DialogTitle>Extract Grocery List from Recipe</DialogTitle>
               <DialogDescription>
-                {(!isPremium && usageCount >= 2) 
-                  ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." 
-                  : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
+                {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
               </DialogDescription>
             </DialogHeader>
             
-            {(!isPremium && usageCount >= 2) ? (
-              <div className="flex flex-col items-center justify-center py-6">
+            {!isPremium && usageCount >= 2 ? <div className="flex flex-col items-center justify-center py-6">
                 <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
                 <p className="text-center text-muted-foreground">
                   Upgrade to premium to automatically extract ingredients from recipes
                 </p>
-                <Button 
-                  className="mt-4" 
-                  onClick={() => {
-                    setOpen(false);
-                    // This would trigger the upgrade flow in a real app
-                    toast({
-                      title: "Premium Feature",
-                      description: "Recipe extraction is a premium feature. Please upgrade to use it.",
-                    });
-                  }}
-                >
+                <Button className="mt-4" onClick={() => {
+            setOpen(false);
+            // This would trigger the upgrade flow in a real app
+            toast({
+              title: "Premium Feature",
+              description: "Recipe extraction is a premium feature. Please upgrade to use it."
+            });
+          }}>
                   Upgrade to Premium
                 </Button>
-              </div>
-            ) : (
-              <>
-                {isCapturing ? (
-                  <div className="grid gap-4">
+              </div> : <>
+                {isCapturing ? <div className="grid gap-4">
                     <div className="relative">
-                      <video 
-                        ref={videoRef} 
-                        className="w-full h-64 object-cover rounded-md bg-muted"
-                        autoPlay 
-                        playsInline
-                      ></video>
+                      <video ref={videoRef} className="w-full h-64 object-cover rounded-md bg-muted" autoPlay playsInline></video>
                       <canvas ref={canvasRef} className="hidden"></canvas>
                     </div>
                     <div className="flex justify-between gap-2">
@@ -429,9 +379,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         Take Photo
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  </div> : <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid grid-cols-3 mb-4">
                       <TabsTrigger value="text">Text</TabsTrigger>
                       <TabsTrigger value="image">Upload</TabsTrigger>
@@ -443,39 +391,18 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         <label htmlFor="recipe-text" className="text-sm font-medium">
                           Paste your recipe
                         </label>
-                        <Textarea
-                          id="recipe-text"
-                          placeholder="Paste your recipe ingredients and instructions here..."
-                          rows={6}
-                          value={recipeText}
-                          onChange={(e) => setRecipeText(e.target.value)}
-                        />
+                        <Textarea id="recipe-text" placeholder="Paste your recipe ingredients and instructions here..." rows={6} value={recipeText} onChange={e => setRecipeText(e.target.value)} />
                       </div>
                     </TabsContent>
                     
                     <TabsContent value="image" className="mt-0">
                       <div className="grid gap-4">
-                        {imagePreview ? (
-                          <div className="relative">
-                            <img 
-                              src={imagePreview} 
-                              alt="Recipe" 
-                              className="w-full max-h-48 object-contain rounded-md border"
-                            />
-                            <Button 
-                              variant="outline" 
-                              size="icon"
-                              className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80"
-                              onClick={() => setImagePreview(null)}
-                            >
+                        {imagePreview ? <div className="relative">
+                            <img src={imagePreview} alt="Recipe" className="w-full max-h-48 object-contain rounded-md border" />
+                            <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80" onClick={() => setImagePreview(null)}>
                               <X className="h-4 w-4" />
                             </Button>
-                          </div>
-                        ) : (
-                          <div 
-                            className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
+                          </div> : <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                             <div className="flex flex-col items-center gap-2">
                               <Image className="h-8 w-8 text-muted-foreground" />
                               <p className="text-sm font-medium">
@@ -485,34 +412,18 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                                 or drag and drop here
                               </p>
                             </div>
-                          </div>
-                        )}
-                        <input 
-                          type="file" 
-                          ref={fileInputRef}
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handleFileUpload}
-                        />
-                        {!imagePreview && (
-                          <Button 
-                            variant="outline" 
-                            className="w-full"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
+                          </div>}
+                        <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
+                        {!imagePreview && <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
                             <Upload className="mr-2 h-4 w-4" />
                             Choose File
-                          </Button>
-                        )}
+                          </Button>}
                       </div>
                     </TabsContent>
                     
                     <TabsContent value="camera" className="mt-0">
                       <div className="grid gap-4">
-                        <div 
-                          className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                          onClick={startCapture}
-                        >
+                        <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={startCapture}>
                           <div className="flex flex-col items-center gap-2">
                             <Camera className="h-8 w-8 text-muted-foreground" />
                             <p className="text-sm font-medium">
@@ -523,11 +434,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                             </p>
                           </div>
                         </div>
-                        <Button 
-                          variant="outline" 
-                          className="w-full"
-                          onClick={startCapture}
-                        >
+                        <Button variant="outline" className="w-full" onClick={startCapture}>
                           <Camera className="mr-2 h-4 w-4" />
                           Open Camera
                         </Button>
@@ -550,39 +457,25 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         Recipe URL (coming soon)
                       </label>
                       <div className="flex gap-2">
-                        <Input
-                          id="recipe-url"
-                          placeholder="https://example.com/recipe"
-                          value={recipeUrl}
-                          onChange={(e) => setRecipeUrl(e.target.value)}
-                          disabled={true}
-                        />
+                        <Input id="recipe-url" placeholder="https://example.com/recipe" value={recipeUrl} onChange={e => setRecipeUrl(e.target.value)} disabled={true} />
                       </div>
                       <p className="text-xs text-muted-foreground">
                         URL parsing will be available in a future update
                       </p>
                     </div>
-                  </Tabs>
-                )}
+                  </Tabs>}
                 
                 <DialogFooter className="mt-4">
                   <Button variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button 
-                    onClick={handleExtract} 
-                    disabled={isExtracting || (!recipeText && !recipeUrl && !imagePreview)}
-                  >
+                  <Button onClick={handleExtract} disabled={isExtracting || !recipeText && !recipeUrl && !imagePreview}>
                     {isExtracting ? "Extracting..." : "Extract Ingredients"}
                   </Button>
                 </DialogFooter>
-              </>
-            )}
-          </>
-        )}
+              </>}
+          </>}
       </DialogContent>
-    </Dialog>
-  );
+    </Dialog>;
 };
-
 export default RecipeExtractor;
