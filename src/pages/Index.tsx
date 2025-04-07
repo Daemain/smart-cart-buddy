@@ -66,10 +66,6 @@ const Index = () => {
               <h1 className="text-xl font-bold">Smart Cart Buddy</h1>
             </div>
             <div className="flex items-center gap-2">
-              <RecipeExtractor 
-                onExtractComplete={handleRecipeExtracted} 
-                isPremium={isPremium} 
-              />
               <AddGroceryForm addGroceryItem={addGroceryItem} />
             </div>
           </div>
@@ -90,6 +86,13 @@ const Index = () => {
             onUpgrade={() => setIsPremium(true)}
           />
         )}
+        
+        <div className="flex justify-start mb-3 mt-1">
+          <RecipeExtractor 
+            onExtractComplete={handleRecipeExtracted} 
+            isPremium={isPremium} 
+          />
+        </div>
         
         {activeCategory === 'suggested' && (
           <>

@@ -28,7 +28,8 @@ export interface PremiumFeatures {
   sharedLists: boolean;
   darkMode: boolean;
   barcodeScanner: boolean;
-  recipeExtractor: boolean; // New premium feature for recipe extraction
+  recipeExtractor: boolean; // Premium feature for recipe extraction after free uses
+  recipeExtractorUsageCount: number; // Track usage for free tier limits
 }
 
 export interface Recipe {
@@ -42,4 +43,3 @@ export interface Recipe {
   url?: string;
   imageUrl?: string;
 }
-

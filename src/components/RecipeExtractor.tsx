@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
@@ -29,6 +29,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const [recipeUrl, setRecipeUrl] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [open, setOpen] = useState(false);
+  const [usageCount, setUsageCount] = useState(0);
+
+  // Load usage count from localStorage on mount
+  useEffect(() => {
+    const storedCount = localStorage.getItem('recipeExtractorUsageCount');
+    if (storedCount) {
+      setUsageCount(parseInt(storedCount, 10));
+    }
+  }, []);
 
   // Mock recipe parsing function (in a real app, you'd use an API)
   const parseRecipe = (text: string): { name: string; quantity: string }[] => {
@@ -66,10 +75,12 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   };
 
   const handleExtract = async () => {
-    if (!isPremium) {
+    const freeUsesRemaining = 2 - usageCount;
+    
+    if (!isPremium && usageCount >= 2) {
       toast({
-        title: "Premium Feature",
-        description: "Recipe extraction is a premium feature. Please upgrade to use it.",
+        title: "Free Tries Used",
+        description: `You've used your ${usageCount} free recipe extractions. Upgrade to premium for unlimited use.`,
         variant: "destructive",
       });
       setOpen(false);
@@ -99,10 +110,30 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           variant: "destructive",
         });
       } else {
-        toast({
-          title: "Recipe extracted",
-          description: `Found ${ingredients.length} ingredients in your recipe.`,
-        });
+        // Increment usage count if not premium
+        if (!isPremium) {
+          const newCount = usageCount + 1;
+          setUsageCount(newCount);
+          localStorage.setItem('recipeExtractorUsageCount', newCount.toString());
+          
+          if (freeUsesRemaining === 1) {
+            toast({
+              title: "Recipe extracted",
+              description: `Found ${ingredients.length} ingredients. This was your last free extraction.`,
+            });
+          } else {
+            toast({
+              title: "Recipe extracted",
+              description: `Found ${ingredients.length} ingredients. You have ${freeUsesRemaining - 1} free extractions left.`,
+            });
+          }
+        } else {
+          toast({
+            title: "Recipe extracted",
+            description: `Found ${ingredients.length} ingredients in your recipe.`,
+          });
+        }
+        
         onExtractComplete(ingredients);
         setOpen(false);
         setRecipeText('');
@@ -131,13 +162,13 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         <DialogHeader>
           <DialogTitle>Extract Grocery List from Recipe</DialogTitle>
           <DialogDescription>
-            {isPremium 
-              ? "Paste your recipe or provide a URL to extract ingredients" 
-              : "Recipe extraction is a premium feature"}
+            {(!isPremium && usageCount >= 2) 
+              ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." 
+              : "Paste your recipe or provide a URL to extract ingredients"}
           </DialogDescription>
         </DialogHeader>
         
-        {!isPremium ? (
+        {(!isPremium && usageCount >= 2) ? (
           <div className="flex flex-col items-center justify-center py-6">
             <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
             <p className="text-center text-muted-foreground">
