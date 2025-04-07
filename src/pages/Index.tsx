@@ -14,6 +14,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
+
 const Index = () => {
   const {
     groceries,
@@ -39,8 +40,8 @@ const Index = () => {
   } = useAuth();
   const [showPremiumBanner, setShowPremiumBanner] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
+
   useEffect(() => {
-    // Check if user has premium status from profile
     if (profile?.is_premium) {
       setIsPremium(true);
     }
@@ -48,19 +49,19 @@ const Index = () => {
       setShowPremiumBanner(true);
     }
   }, [allGroceries.length, isPremium, showPremiumBanner, profile]);
+
   const counts = {
     all: allGroceries.length,
     frequent: allGroceries.filter(item => item.isFrequent).length,
     completed: allGroceries.filter(item => item.isCompleted).length,
     suggested: suggestedItems?.length || 0
   };
+
   const handleRecipeExtracted = (ingredients: {
     name: string;
     quantity: string;
   }[], recipeName: string) => {
-    // Save the recipe first
     saveRecipe(recipeName, ingredients).then(newRecipe => {
-      // Then add all ingredients to the grocery list with a reference to the recipe
       ingredients.forEach(ingredient => {
         addGroceryItem(ingredient.name, ingredient.quantity || '1', undefined, newRecipe.id);
       });
@@ -68,10 +69,11 @@ const Index = () => {
       console.error('Failed to save recipe:', error);
     });
   };
+
   return <div className="min-h-screen bg-app-background flex flex-col">
       <header className="sticky top-0 z-10 bg-app-background shadow-sm border-b">
-        <div className="max-w-md mx-auto px-4 py-4">
-          <div className="flex items-center justify-between mb-4">
+        <div className="max-w-md mx-auto px-2 py-4">
+          <div className="flex items-center justify-between mb-4 px-2">
             <div className="flex items-center gap-2">
               <div className="bg-primary rounded-full p-1 text-primary-foreground">
                 <ShoppingCart className="h-4 w-4" />
@@ -138,4 +140,5 @@ const Index = () => {
       </main>
     </div>;
 };
+
 export default Index;
