@@ -60,8 +60,8 @@ const Index = () => {
         <div className="max-w-md mx-auto px-4 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="bg-primary rounded-full p-2 text-primary-foreground">
-                <ShoppingCart className="h-5 w-5" />
+              <div className="bg-primary rounded-full p-1.5 text-primary-foreground">
+                <ShoppingCart className="h-4 w-4" />
               </div>
               <h1 className="text-xl font-bold">Smart Cart Buddy</h1>
             </div>
