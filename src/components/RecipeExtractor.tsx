@@ -299,7 +299,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           </> : <>
             <DialogHeader className="my-[8px]">
               <DialogTitle className="text-base">Extract Grocery List from Recipe</DialogTitle>
-              <DialogDescription className="font-light text-xs">
+              <DialogDescription className="font-light text-sm">
                 {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
               </DialogDescription>
             </DialogHeader>
