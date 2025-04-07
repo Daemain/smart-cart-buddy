@@ -283,7 +283,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
 
   return <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit bg-gradient-to-r from-blue-400 to-cyan-300 hover:bg-gradient-to-r hover:from-blue-500 hover:to-cyan-400 text-white border-none shadow-md hover:shadow-lg transition-all">
+        <Button variant="gradient" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit">
           <ChefHat className="h-5 w-5" />
           <Sparkles className="h-4 w-4" />
           <span className="hidden sm:inline">Use AI</span>
