@@ -298,8 +298,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             </Form>
           </> : <>
             <DialogHeader className="my-[8px]">
-              <DialogTitle>Extract Grocery List from Recipe</DialogTitle>
-              <DialogDescription className="text-sm font-light">
+              <DialogTitle className="text-base">Extract Grocery List from Recipe</DialogTitle>
+              <DialogDescription className="font-light text-xs">
                 {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
               </DialogDescription>
             </DialogHeader>
@@ -358,7 +358,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           </div> : <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
                             <div className="flex flex-col items-center gap-2">
                               <Image className="h-8 w-8 text-muted-foreground" />
-                              <p className="text-sm font-medium">
+                              <p className="font-medium text-xs">
                                 Click to upload a recipe image
                               </p>
                               <p className="text-xs text-muted-foreground">
