@@ -15,14 +15,22 @@ import { cn } from '@/lib/utils';
 interface RecipeFolderProps {
   recipes: Recipe[];
   onAddToList: (recipe: Recipe) => void;
+  onCompleteRecipe?: (recipe: Recipe) => void;
+  activeCategory: string;
 }
 
-const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => {
+const RecipeFolder: React.FC<RecipeFolderProps> = ({ 
+  recipes, 
+  onAddToList, 
+  onCompleteRecipe,
+  activeCategory
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
 
-  if (recipes.length === 0) {
+  // Only show on the 'all' category
+  if (recipes.length === 0 || activeCategory !== 'all') {
     return null;
   }
 
@@ -39,6 +47,12 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => 
       ...prev,
       [key]: !prev[key]
     }));
+  };
+
+  const handleCompleteRecipe = (recipe: Recipe) => {
+    if (onCompleteRecipe) {
+      onCompleteRecipe(recipe);
+    }
   };
 
   return (
@@ -64,11 +78,20 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => 
               <div key={recipe.id} className="group">
                 <div className="p-4 hover:bg-muted/20 transition-colors">
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <h3 className="font-medium text-base">{recipe.title}</h3>
-                      <p className="text-xs text-muted-foreground">
-                        {recipe.ingredients.length} ingredients • Added {formatDistanceToNow(recipe.createdAt, { addSuffix: true })}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      {onCompleteRecipe && (
+                        <Checkbox 
+                          id={`recipe-${recipe.id}`} 
+                          className="h-5 w-5 flex-shrink-0 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          onCheckedChange={() => handleCompleteRecipe(recipe)}
+                        />
+                      )}
+                      <div className="space-y-1">
+                        <h3 className="font-medium text-base">{recipe.title}</h3>
+                        <p className="text-xs text-muted-foreground">
+                          {recipe.ingredients.length} ingredients • Added {formatDistanceToNow(recipe.createdAt, { addSuffix: true })}
+                        </p>
+                      </div>
                     </div>
                     <Button
                       variant="outline"
@@ -86,16 +109,16 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => 
                   </div>
                   
                   {expandedRecipes[recipe.id] && (
-                    <div className="mt-4 pl-4 border-l-2 border-primary/20 animate-fade-in">
+                    <div className="mt-4 pl-6 border-l-2 border-primary/20 animate-fade-in">
                       <h4 className="text-xs font-semibold text-muted-foreground mb-3">Ingredients:</h4>
-                      <ul className="space-y-2.5">
+                      <ul className="space-y-3">
                         {recipe.ingredients.map((ingredient, index) => (
                           <li key={index} className="flex items-center group/item">
                             <div className="flex items-center flex-1 min-w-0">
                               <Checkbox 
                                 checked={!!checkedIngredients[`${recipe.id}-${index}`]}
                                 onCheckedChange={() => toggleIngredientCheck(recipe.id, index)}
-                                className="h-4 w-4 mr-3 flex-shrink-0 data-[state=checked]:bg-primary/90 data-[state=checked]:border-primary/90"
+                                className="h-4 w-4 mr-3 flex-shrink-0 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                                 id={`ingredient-${recipe.id}-${index}`}
                               />
                               <label 
@@ -116,7 +139,7 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({ recipes, onAddToList }) => 
                           </li>
                         ))}
                       </ul>
-                      <div className="mt-4 flex justify-end">
+                      <div className="mt-5 flex justify-end">
                         <Button
                           variant="ghost"
                           size="sm"

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -98,6 +99,30 @@ const Index = () => {
     });
   };
 
+  const handleCompleteRecipe = (recipe: Recipe) => {
+    // Mark all ingredients from this recipe as completed
+    recipe.ingredients.forEach(ingredient => {
+      const matchingItems = allGroceries.filter(
+        item => item.recipeId === recipe.id && 
+        item.name.toLowerCase() === ingredient.name.toLowerCase() && 
+        !item.isCompleted
+      );
+      
+      // Toggle completion for each matching item
+      matchingItems.forEach(item => {
+        toggleCompletion(item.id);
+      });
+    });
+    
+    toast({
+      title: "Recipe completed",
+      description: `"${recipe.title}" has been marked as completed.`,
+    });
+    
+    // Change the category to 'completed' to show the user the completed items
+    setActiveCategory('completed');
+  };
+
   const canAccessPremium = isPremium || !hasFreeTrialUsed;
   
   const handleUpgrade = () => {
@@ -185,7 +210,12 @@ const Index = () => {
                   <RecipeExtractor onExtractComplete={handleRecipeExtracted} isPremium={canAccessPremium} />
                 </div>
                 
-                <RecipeFolder recipes={recipes} onAddToList={addRecipeToList} />
+                <RecipeFolder 
+                  recipes={recipes} 
+                  onAddToList={addRecipeToList} 
+                  onCompleteRecipe={handleCompleteRecipe}
+                  activeCategory={activeCategory}
+                />
                 
                 <div className="space-y-2 mt-1">
                   {groceries.length === 0 ? (
