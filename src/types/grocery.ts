@@ -7,6 +7,7 @@ export interface GroceryItem {
   isCompleted: boolean;
   isFrequent: boolean;
   createdAt: number;
+  completedAt?: number; // New field to track when an item was completed
   category?: string; // Optional category for organization
   lastPurchased?: number; // For auto-suggestions based on history
   fromRecipe?: string; // To track which recipe an item came from

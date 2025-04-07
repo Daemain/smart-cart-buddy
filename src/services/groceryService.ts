@@ -1,4 +1,3 @@
-
 import { GroceryItem, GroceryList, Recipe } from '@/types/grocery';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
@@ -56,6 +55,7 @@ export const loadGroceries = async (): Promise<GroceryList> => {
       isCompleted: item.is_completed || false,
       isFrequent: item.is_frequent || false,
       createdAt: new Date(item.created_at).getTime(),
+      completedAt: item.completed_at ? new Date(item.completed_at).getTime() : undefined,
       recipeId: item.recipe_id || undefined
     }));
   } catch (error) {
@@ -207,7 +207,11 @@ export const toggleItemCompletion = async (id: string): Promise<GroceryList> => 
     // Toggle the completion status
     const { error } = await supabase
       .from('grocery_items')
-      .update({ is_completed: !currentItem.is_completed })
+      .update({ 
+        is_completed: !currentItem.is_completed,
+        // If we're completing the item, set the completed_at timestamp
+        ...(currentItem.is_completed ? {} : { completed_at: new Date().toISOString() })
+      })
       .eq('id', id);
     
     if (error) throw error;
@@ -218,9 +222,21 @@ export const toggleItemCompletion = async (id: string): Promise<GroceryList> => 
     
     // Fallback to localStorage
     const currentItems = await loadGroceries();
-    const updatedItems = currentItems.map(item => 
-      item.id === id ? { ...item, isCompleted: !item.isCompleted } : item
-    );
+    const now = Date.now();
+    
+    const updatedItems = currentItems.map(item => {
+      if (item.id === id) {
+        const newCompletionState = !item.isCompleted;
+        return { 
+          ...item, 
+          isCompleted: newCompletionState,
+          // Only add completedAt if the item is being completed (not if it's being uncompleted)
+          completedAt: newCompletionState ? now : undefined
+        };
+      }
+      return item;
+    });
+    
     localStorage.setItem('smart-cart-buddy-items', JSON.stringify(updatedItems));
     
     return updatedItems;
