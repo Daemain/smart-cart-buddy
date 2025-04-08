@@ -17,7 +17,39 @@ serve(async (req) => {
   }
 
   try {
-    const { recipeText, imageBase64, userDescription } = await req.json();
+    console.log('Starting extract-ingredients function');
+    
+    if (!openAIApiKey && !googleCloudApiKey) {
+      console.error('No API keys configured. Both OpenAI and Google Cloud Vision API keys are missing.');
+      return new Response(JSON.stringify({ 
+        error: 'No image analysis API keys configured. Please configure either OpenAI or Google Cloud Vision API.'
+      }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    let body;
+    try {
+      body = await req.json();
+      console.log('Request body parsed successfully');
+    } catch (jsonError) {
+      console.error('Failed to parse request JSON:', jsonError);
+      return new Response(JSON.stringify({ error: 'Invalid JSON in request body' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    
+    const { recipeText, imageBase64, userDescription } = body;
+    
+    console.log('Input validation:', {
+      hasRecipeText: !!recipeText,
+      hasImageBase64: !!imageBase64,
+      hasUserDescription: !!userDescription,
+      openAIKeyExists: !!openAIApiKey,
+      googleCloudKeyExists: !!googleCloudApiKey
+    });
     
     // Check if we have either image with description or text input
     if (!imageBase64 && (!recipeText || recipeText.trim() === '')) {
@@ -37,6 +69,7 @@ serve(async (req) => {
       // Try OpenAI first - if API key is available
       if (openAIApiKey) {
         try {
+          console.log('Attempting extraction with OpenAI Vision API');
           ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
           console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
           analysisMethod = 'openai';
@@ -72,7 +105,10 @@ serve(async (req) => {
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
             } else {
-              return new Response(JSON.stringify({ error: 'Failed to analyze image. Please try again with a clearer image or use text input.' }), {
+              return new Response(JSON.stringify({ 
+                error: 'Failed to analyze image. Please try again with a clearer image or use text input.',
+                details: aiError.message
+              }), {
                 status: 500,
                 headers: { ...corsHeaders, 'Content-Type': 'application/json' },
               });
@@ -131,7 +167,10 @@ serve(async (req) => {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         } else {
-          return new Response(JSON.stringify({ error: 'Failed to analyze recipe text. Try with an image instead.' }), {
+          return new Response(JSON.stringify({ 
+            error: 'Failed to analyze recipe text. Try with an image instead.',
+            details: aiError.message
+          }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
@@ -150,8 +189,11 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
-    console.error('Error extracting ingredients:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('Unhandled error in extract-ingredients function:', error);
+    return new Response(JSON.stringify({ 
+      error: error.message || "An unexpected error occurred",
+      details: error.stack || "No stack trace available"
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -162,6 +204,10 @@ async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescriptio
   console.log('Sending image to OpenAI vision API with description:', userDescription.substring(0, 50));
   
   try {
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key is not configured');
+    }
+    
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -220,7 +266,12 @@ IMPORTANT: If the image is unclear or you cannot identify specific ingredients c
     if (!response.ok) {
       const errorData = await response.json();
       console.error('OpenAI API error response:', errorData);
-      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+      
+      if (errorData.error?.code === 'rate_limit_exceeded') {
+        throw new Error(`OpenAI API quota exceeded: ${errorData.error?.message || 'Rate limit reached'}`);
+      }
+      
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText || 'Unknown API error'}`);
     }
 
     const data = await response.json();
@@ -264,6 +315,10 @@ async function extractIngredientsWithGoogleVision(imageBase64, userDescription) 
   console.log('Sending image to Google Cloud Vision API with description:', userDescription.substring(0, 50));
 
   try {
+    if (!googleCloudApiKey) {
+      throw new Error('Google Cloud API key is not configured');
+    }
+    
     // Step 1: Analyze the image with Google Cloud Vision API
     const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleCloudApiKey}`, {
       method: 'POST',
@@ -298,7 +353,7 @@ async function extractIngredientsWithGoogleVision(imageBase64, userDescription) 
     if (!visionResponse.ok) {
       const errorData = await visionResponse.json();
       console.error('Google Vision API error response:', errorData);
-      throw new Error(`Google Vision API error: ${errorData.error?.message || visionResponse.statusText}`);
+      throw new Error(`Google Vision API error: ${errorData.error?.message || visionResponse.statusText || 'Unknown API error'}`);
     }
 
     const visionData = await visionResponse.json();
@@ -329,13 +384,12 @@ async function extractIngredientsWithGoogleVision(imageBase64, userDescription) 
     console.log('Food related items detected:', foodRelatedItems);
     console.log('Text detected in image:', detectedText);
     
-    // Skip OpenAI processing if we don't have any useful data
+    // Skip processing if we don't have any useful data
     if (foodRelatedItems.length === 0 && !detectedText && !userDescription) {
       throw new Error('No food items or text detected in the image');
     }
     
-    // Step 2: Process the Google Vision results with a specialized prompt to extract ingredients
-    // We'll use a specialized algorithm to convert Google's labels to ingredients
+    // Process the Google Vision results to extract ingredients
     const ingredients = extractIngredientsFromGoogleVisionResults(
       foodRelatedItems, 
       detectedText, 
@@ -458,18 +512,25 @@ function extractIngredientsFromGoogleVisionResults(foodItems, detectedText, user
 }
 
 async function extractIngredientsWithOpenAI(recipeText) {
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o-mini',
-      messages: [
-        { 
-          role: 'system', 
-          content: `You are a professional chef specializing in global cuisine. Your task is to:
+  console.log('Sending text to OpenAI for ingredient extraction');
+  
+  if (!openAIApiKey) {
+    throw new Error('OpenAI API key is not configured');
+  }
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { 
+            role: 'system', 
+            content: `You are a professional chef specializing in global cuisine. Your task is to:
 
 1. If given a FOOD NAME (like "Egusi", "Lasagna", "Spaghetti Carbonara"), provide a DETAILED list of ALL ingredients typically needed to make this dish with appropriate quantities.
 
@@ -481,46 +542,55 @@ In both cases, format your response as a VALID JSON ARRAY of objects with "name"
 BE COMPREHENSIVE - provide ALL typical ingredients for the dish, not just the main ingredient.
 For traditional dishes, include ALL authentic ingredients.
 ONLY return valid JSON without any additional text.`
-        },
-        { role: 'user', content: recipeText }
-      ],
-      temperature: 0.2,
-    }),
-  });
+          },
+          { role: 'user', content: recipeText }
+        ],
+        temperature: 0.2,
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
-  }
-
-  const data = await response.json();
-  
-  const ingredientsText = data.choices[0].message.content;
-  console.log('Raw OpenAI response:', ingredientsText);
-  
-  // Parse the ingredients JSON
-  try {
-    // Try to parse the JSON directly
-    const parsed = JSON.parse(ingredientsText);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
-    } else {
-      throw new Error('Invalid response format');
-    }
-  } catch (e) {
-    console.error('Failed to parse OpenAI response as JSON:', e);
-    // Try to extract JSON from text
-    const jsonMatch = ingredientsText.match(/\[(.|\n)*\]/);
-    if (jsonMatch) {
-      try {
-        const extracted = JSON.parse(jsonMatch[0]);
-        if (Array.isArray(extracted) && extracted.length > 0) {
-          return extracted;
-        }
-      } catch (e2) {
-        console.error('Failed to parse JSON from regex match:', e2);
+    if (!response.ok) {
+      const errorData = await response.json();
+      
+      if (errorData.error?.code === 'rate_limit_exceeded') {
+        throw new Error(`OpenAI API quota exceeded: ${errorData.error?.message || 'Rate limit reached'}`);
       }
+      
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText || 'Unknown API error'}`);
     }
-    throw new Error('Could not parse ingredients from AI response');
+
+    const data = await response.json();
+    
+    const ingredientsText = data.choices[0].message.content;
+    console.log('Raw OpenAI response:', ingredientsText);
+    
+    // Parse the ingredients JSON
+    try {
+      // Try to parse the JSON directly
+      const parsed = JSON.parse(ingredientsText);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (e) {
+      console.error('Failed to parse OpenAI response as JSON:', e);
+      // Try to extract JSON from text
+      const jsonMatch = ingredientsText.match(/\[(.|\n)*\]/);
+      if (jsonMatch) {
+        try {
+          const extracted = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(extracted) && extracted.length > 0) {
+            return extracted;
+          }
+        } catch (e2) {
+          console.error('Failed to parse JSON from regex match:', e2);
+        }
+      }
+      throw new Error('Could not parse ingredients from AI response');
+    }
+  } catch (error) {
+    console.error('Error in extractIngredientsWithOpenAI:', error);
+    throw error;
   }
 }

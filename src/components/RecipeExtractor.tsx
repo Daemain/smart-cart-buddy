@@ -187,34 +187,49 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         payload.recipeText = text;
         console.log("Sending text for extraction:", text.substring(0, 50) + '...');
       }
+
+      console.log("Payload prepared, invoking edge function...");
       
-      const {
-        data,
-        error
-      } = await supabase.functions.invoke('extract-ingredients', {
-        body: payload
-      });
-      
-      if (error) {
-        throw new Error(`Edge function error: ${error.message}`);
-      }
-      
-      if (data.error) {
-        if (data.isQuotaError) {
-          throw new Error(`OpenAI API quota exceeded. Please try again later or contact support.`);
+      try {
+        const {
+          data,
+          error
+        } = await supabase.functions.invoke('extract-ingredients', {
+          body: payload
+        });
+        
+        console.log("Edge function response:", { data, error });
+        
+        if (error) {
+          console.error("Edge function returned an error:", error);
+          throw new Error(`Edge function error: ${error.message}`);
         }
-        throw new Error(data.error);
+        
+        if (data.error) {
+          console.error("Edge function returned a data error:", data.error);
+          if (data.isQuotaError) {
+            throw new Error(`OpenAI API quota exceeded. Please try again later or contact support.`);
+          }
+          throw new Error(data.error);
+        }
+        
+        if (!data.ingredients || !Array.isArray(data.ingredients)) {
+          console.error("Invalid ingredients response:", data);
+          throw new Error('Invalid response from AI service');
+        }
+        
+        if (data.analysisMethod) {
+          setAnalysisMethod(data.analysisMethod);
+        }
+        
+        return data.ingredients;
+      } catch (invokeError) {
+        console.error("Error invoking edge function:", invokeError);
+        if (invokeError.message?.includes('Failed to fetch')) {
+          throw new Error('Network error: Could not connect to the AI service. Please check your internet connection and try again.');
+        }
+        throw invokeError;
       }
-      
-      if (!data.ingredients || !Array.isArray(data.ingredients)) {
-        throw new Error('Invalid response from AI service');
-      }
-      
-      if (data.analysisMethod) {
-        setAnalysisMethod(data.analysisMethod);
-      }
-      
-      return data.ingredients;
     } catch (error) {
       console.error('Error extracting ingredients with AI:', error);
       throw error;
@@ -262,6 +277,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       
       if (hasImage) {
         try {
+          console.log("Starting image extraction process...");
           ingredients = await extractIngredientsWithAI('', imageBase64!, userDescription);
           console.log("Extracted ingredients from image:", ingredients);
         } catch (aiError) {
@@ -273,6 +289,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             toast({
               title: "API Quota Exceeded",
               description: "The AI service has reached its usage limit. Please try again later or use text extraction instead.",
+              variant: "destructive",
+              duration: 8000
+            });
+          } else if (aiError.message && aiError.message.includes('Network error')) {
+            setExtractionError(aiError.message);
+            
+            toast({
+              title: "Connection Error",
+              description: aiError.message,
               variant: "destructive",
               duration: 8000
             });
