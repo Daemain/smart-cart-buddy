@@ -1,6 +1,5 @@
 
 import { toast as sonnerToast } from "sonner";
-import { useToast as useSonnerToast } from "sonner";
 import type { ExternalToast } from "sonner";
 
 // Set a longer duration for toasts by default (5000ms = 5 seconds)
@@ -37,7 +36,7 @@ function toast(props: {
 // Add properties to toast function
 toast.defaultDuration = defaultDuration;
 
-// Use function
+// Create our own useToast hook
 function useToast() {
   return {
     toast,
