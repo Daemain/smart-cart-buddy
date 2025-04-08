@@ -38,11 +38,20 @@ export const useGroceryRecipeIntegration = (
         description: "Ingredient name is required",
         variant: "destructive"
       });
-      return;
+      return Promise.reject(new Error("Ingredient name is required"));
     }
 
     // Call the addGroceryItem function with recipe ID to associate it
-    return addGroceryItem(ingredientName, quantity, undefined, recipe.id);
+    try {
+      toast({
+        title: "Ingredient added",
+        description: `"${ingredientName}" has been added to your grocery list.`,
+      });
+      return addGroceryItem(ingredientName, quantity, undefined, recipe.id);
+    } catch (error) {
+      console.error("Error adding ingredient:", error);
+      throw error;
+    }
   };
 
   return {

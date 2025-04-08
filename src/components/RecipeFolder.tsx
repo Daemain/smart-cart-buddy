@@ -171,6 +171,12 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
           ...prev,
           [recipeId]: false
         }));
+        
+        // Add success notification
+        toast({
+          title: "Success",
+          description: `"${ingredientData.name.trim()}" has been added to your grocery list.`,
+        });
       } catch (error) {
         console.error('Error adding ingredient:', error);
         toast({
