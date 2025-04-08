@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
@@ -13,7 +12,6 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/integrations/supabase/client';
-
 interface RecipeExtractorProps {
   onExtractComplete: (ingredients: {
     name: string;
@@ -21,13 +19,10 @@ interface RecipeExtractorProps {
   }[], recipeName: string) => void;
   isPremium: boolean;
 }
-
 const recipeNameSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required')
 });
-
 type RecipeNameFormValues = z.infer<typeof recipeNameSchema>;
-
 const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   onExtractComplete,
   isPremium
@@ -47,21 +42,18 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  
   const form = useForm<RecipeNameFormValues>({
     resolver: zodResolver(recipeNameSchema),
     defaultValues: {
       recipeName: ''
     }
   });
-
   useEffect(() => {
     const storedCount = localStorage.getItem('recipeExtractorUsageCount');
     if (storedCount) {
       setUsageCount(parseInt(storedCount, 10));
     }
   }, []);
-
   const processImageForRecipe = async (imageUrl: string) => {
     setIsExtracting(true);
     try {
@@ -69,10 +61,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         title: "Processing image",
         description: "Analyzing your recipe image..."
       });
-      
       await new Promise(resolve => setTimeout(resolve, 2000));
       const extractedText = "Recipe for Pancakes\n" + "2 cups flour\n" + "2 tablespoons sugar\n" + "1 teaspoon baking powder\n" + "1/2 teaspoon salt\n" + "2 eggs\n" + "1 1/2 cups milk\n" + "2 tablespoons melted butter";
-      
       setRecipeText(extractedText);
       setActiveTab('text');
       return extractedText;
@@ -88,7 +78,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
-
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -109,7 +98,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     };
     reader.readAsDataURL(file);
   };
-
   const startCapture = async () => {
     setIsCapturing(true);
     try {
@@ -132,7 +120,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsCapturing(false);
     }
   };
-
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -153,7 +140,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       }
     }
   };
-
   const cancelCapture = () => {
     if (videoRef.current) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -165,31 +151,30 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     setIsCapturing(false);
   };
-
   const extractIngredientsWithAI = async (text: string) => {
     try {
-      const { data, error } = await supabase.functions.invoke('extract-ingredients', {
-        body: { recipeText: text }
+      const {
+        data,
+        error
+      } = await supabase.functions.invoke('extract-ingredients', {
+        body: {
+          recipeText: text
+        }
       });
-
       if (error) {
         throw new Error(`Edge function error: ${error.message}`);
       }
-
       if (!data.ingredients || !Array.isArray(data.ingredients)) {
         throw new Error('Invalid response from AI service');
       }
-
       return data.ingredients;
     } catch (error) {
       console.error('Error extracting ingredients with AI:', error);
       throw error;
     }
   };
-
   const handleExtract = async () => {
     const freeUsesRemaining = 2 - usageCount;
-    
     if (!isPremium && usageCount >= 2) {
       toast({
         title: "Free Tries Used",
@@ -199,7 +184,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setOpen(false);
       return;
     }
-    
     if (!recipeText && !imagePreview) {
       toast({
         title: "Missing Information",
@@ -208,27 +192,22 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       });
       return;
     }
-    
     setIsExtracting(true);
-    
     try {
       let ingredients;
-      
       try {
         ingredients = await extractIngredientsWithAI(recipeText);
         console.log("Extracted ingredients:", ingredients);
       } catch (aiError) {
         console.error('AI extraction failed, falling back to basic parsing:', aiError);
-        
         toast({
           title: "AI extraction unavailable",
-          description: "Using basic extraction instead. Results may be limited.",
+          description: "Using basic extraction instead. Results may be limited."
         });
-        
+
         // Use our fallback parser
         ingredients = parseRecipe(recipeText);
       }
-      
       if (!ingredients || ingredients.length === 0) {
         toast({
           title: "No ingredients found",
@@ -240,7 +219,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           const newCount = usageCount + 1;
           setUsageCount(newCount);
           localStorage.setItem('recipeExtractorUsageCount', newCount.toString());
-          
           if (freeUsesRemaining === 1) {
             toast({
               title: "Ingredients extracted",
@@ -258,9 +236,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             description: `Found ${ingredients.length} ingredients for your dish.`
           });
         }
-        
         setExtractedIngredients(ingredients);
-        
+
         // Set a default recipe name if it's a simple food item
         let defaultName = recipeText.trim();
         if (defaultName.split(' ').length <= 3) {
@@ -268,7 +245,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         } else {
           form.setValue('recipeName', 'My Recipe');
         }
-        
         setShowNameForm(true);
       }
     } catch (error) {
@@ -282,7 +258,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
-
   const parseRecipe = (text: string): {
     name: string;
     quantity: string;
@@ -292,7 +267,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       name: string;
       quantity: string;
     }[] = [];
-    
+
     // If it's just a single food item with no line breaks, return it as an ingredient
     if (lines.length === 1 && text.trim().length > 0) {
       return [{
@@ -300,22 +275,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         quantity: '1 serving'
       }];
     }
-    
     lines.forEach(line => {
       line = line.trim();
       if (!line) return;
-      
-      const quantityMatch = line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+of\s+(.+)$/) || 
-                             line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+(.+)$/) || 
-                             line.match(/^([\d\/\.\s]+)?\s+(.+)$/);
-      
+      const quantityMatch = line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+of\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s+(.+)$/);
       if (quantityMatch) {
         const quantity = quantityMatch[1] ? quantityMatch[1].trim() : '';
         const unit = quantityMatch[2] ? quantityMatch[2].trim() : '';
         const name = quantityMatch[3] ? quantityMatch[3].trim() : quantityMatch[2];
-        
         const quantityText = [quantity, unit].filter(Boolean).join(' ');
-        
         ingredients.push({
           name: name,
           quantity: quantityText || '1'
@@ -327,10 +295,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         });
       }
     });
-    
     return ingredients;
   };
-
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
     setOpen(false);
@@ -340,9 +306,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setExtractedIngredients([]);
     form.reset();
   };
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
+  return <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="gradient" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit">
           <ChefHat className="h-5 w-5" />
@@ -352,8 +316,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       </DialogTrigger>
       
       <DialogContent className="sm:max-w-md">
-        {showNameForm ? (
-          <>
+        {showNameForm ? <>
             <DialogHeader>
               <DialogTitle>Name Your Recipe</DialogTitle>
               <DialogDescription>
@@ -363,19 +326,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmitRecipeName)} className="space-y-4">
-                <FormField 
-                  control={form.control} 
-                  name="recipeName" 
-                  render={({ field }) => (
-                    <FormItem>
+                <FormField control={form.control} name="recipeName" render={({
+              field
+            }) => <FormItem>
                       <FormLabel>Recipe Name</FormLabel>
                       <FormControl>
                         <Input placeholder="My Delicious Recipe" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>
-                  )} 
-                />
+                    </FormItem>} />
                 
                 <div className="text-sm text-muted-foreground">
                   {extractedIngredients.length} ingredients extracted
@@ -391,38 +350,30 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 </DialogFooter>
               </form>
             </Form>
-          </>
-        ) : (
-          <>
+          </> : <>
             <DialogHeader className="my-[8px]">
               <DialogTitle className="text-base">Extract Ingredients for Any Dish</DialogTitle>
               <DialogDescription className="font-light text-sm">
-                {!isPremium && usageCount >= 2 
-                  ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." 
-                  : "Enter a dish name, paste a recipe, or upload an image to get ingredients"}
+                {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Enter a dish name, paste a recipe, or upload an image to get ingredients"}
               </DialogDescription>
             </DialogHeader>
             
-            {!isPremium && usageCount >= 2 ? (
-              <div className="flex flex-col items-center justify-center py-6">
+            {!isPremium && usageCount >= 2 ? <div className="flex flex-col items-center justify-center py-6">
                 <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
                 <p className="text-center text-muted-foreground">
                   Upgrade to premium to automatically extract ingredients from recipes
                 </p>
                 <Button className="mt-4" onClick={() => {
-                  setOpen(false);
-                  toast({
-                    title: "Premium Feature",
-                    description: "Recipe extraction is a premium feature. Please upgrade to use it."
-                  });
-                }}>
+            setOpen(false);
+            toast({
+              title: "Premium Feature",
+              description: "Recipe extraction is a premium feature. Please upgrade to use it."
+            });
+          }}>
                   Upgrade to Premium
                 </Button>
-              </div>
-            ) : (
-              <>
-                {isCapturing ? (
-                  <div className="grid gap-4">
+              </div> : <>
+                {isCapturing ? <div className="grid gap-4">
                     <div className="relative">
                       <video ref={videoRef} className="w-full h-64 object-cover rounded-md bg-muted" autoPlay playsInline></video>
                       <canvas ref={canvasRef} className="hidden"></canvas>
@@ -435,9 +386,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         Take Photo
                       </Button>
                     </div>
-                  </div>
-                ) : (
-                  <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  </div> : <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid grid-cols-3 mb-4">
                       <TabsTrigger value="text">Text</TabsTrigger>
                       <TabsTrigger value="image">Upload</TabsTrigger>
@@ -449,13 +398,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         <label htmlFor="recipe-text" className="text-sm font-medium">
                           Enter a dish or paste a recipe
                         </label>
-                        <Textarea 
-                          id="recipe-text" 
-                          placeholder="Type a dish name (e.g., 'Egusi' or 'Lasagna') or paste a full recipe..." 
-                          rows={6} 
-                          value={recipeText} 
-                          onChange={e => setRecipeText(e.target.value)} 
-                        />
+                        <Textarea id="recipe-text" placeholder="Type a dish name (e.g., 'Egusi' or 'Lasagna') or paste a full recipe..." rows={6} value={recipeText} onChange={e => setRecipeText(e.target.value)} />
                         <p className="text-xs text-muted-foreground">
                           You can type a food name like "Egusi" or "Jollof Rice" to get ingredients
                         </p>
@@ -505,27 +448,19 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         </Button>
                       </div>
                     </TabsContent>
-                  </Tabs>
-                )}
+                  </Tabs>}
                 
                 <DialogFooter className="mt-4">
-                  <Button variant="outline" onClick={() => setOpen(false)} className="my-[16px]">
+                  <Button variant="outline" onClick={() => setOpen(false)} className="my-0">
                     Cancel
                   </Button>
-                  <Button 
-                    onClick={handleExtract} 
-                    disabled={isExtracting || (!recipeText && !imagePreview)}
-                  >
+                  <Button onClick={handleExtract} disabled={isExtracting || !recipeText && !imagePreview}>
                     {isExtracting ? "Extracting..." : "Extract Ingredients"}
                   </Button>
                 </DialogFooter>
-              </>
-            )}
-          </>
-        )}
+              </>}
+          </>}
       </DialogContent>
-    </Dialog>
-  );
+    </Dialog>;
 };
-
 export default RecipeExtractor;
