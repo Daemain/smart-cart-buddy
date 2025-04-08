@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Recipe } from '@/types/grocery';
-import { ChefHat, ChevronDown, ChevronUp, CheckCircle, EyeIcon, EyeOffIcon, Trash2 } from 'lucide-react';
+import { ChefHat, ChevronDown, ChevronUp, CheckCircle, EyeIcon, EyeOffIcon, Trash2, Plus } from 'lucide-react';
 import { 
   Collapsible,
   CollapsibleContent,
@@ -33,24 +32,19 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   const [completedRecipes, setCompletedRecipes] = useState<Record<string, boolean>>({});
 
-  // Only show on the 'all' or 'completed' category
   if (recipes.length === 0 || (activeCategory !== 'all' && activeCategory !== 'completed')) {
     return null;
   }
 
-  // Filter recipes based on the active category
   const filteredRecipes = recipes.filter((recipe) => {
     if (activeCategory === 'all') {
-      // Only show non-completed recipes in "All"
       return !completedRecipes[recipe.id];
     } else if (activeCategory === 'completed') {
-      // Only show completed recipes in "Completed"
       return completedRecipes[recipe.id];
     }
     return true;
   });
 
-  // Don't render if there are no filtered recipes to show
   if (filteredRecipes.length === 0) {
     return null;
   }
@@ -62,7 +56,6 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     }));
   };
 
-  // Toggle check for individual ingredient
   const toggleIngredientCheck = (recipeId: string, ingredientIndex: number) => {
     const key = `${recipeId}-${ingredientIndex}`;
     setCheckedIngredients(prev => ({
@@ -71,7 +64,6 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     }));
   };
 
-  // Check all ingredients in a recipe
   const checkAllIngredients = (recipe: Recipe) => {
     const updatedChecks = { ...checkedIngredients };
     
@@ -90,7 +82,6 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
 
   const handleCompleteRecipe = (recipe: Recipe) => {
     if (onCompleteRecipe) {
-      // Update local state to track completed recipes
       setCompletedRecipes(prev => ({
         ...prev,
         [recipe.id]: !prev[recipe.id]
@@ -100,13 +91,12 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
   };
 
   const handleDeleteRecipe = (recipeId: string, e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent the click from expanding the recipe
+    e.stopPropagation();
     if (onDeleteRecipe) {
       onDeleteRecipe(recipeId);
     }
   };
 
-  // Get completion status of recipe
   const getRecipeCompletionPercentage = (recipeId: string, ingredientsCount: number) => {
     let checkedCount = 0;
     
@@ -118,6 +108,16 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     }
     
     return ingredientsCount > 0 ? Math.round((checkedCount / ingredientsCount) * 100) : 0;
+  };
+
+  const handleAddToList = (recipe: Recipe) => {
+    if (onAddToList) {
+      onAddToList(recipe);
+      toast({
+        title: "Recipe added to list",
+        description: `Ingredients from "${recipe.title}" have been added to your grocery list.`,
+      });
+    }
   };
 
   return (
@@ -230,7 +230,16 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
                           </li>
                         ))}
                       </ul>
-                      <div className="mt-5 flex justify-end">
+                      <div className="mt-5 flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 bg-primary/5 hover:bg-primary/10 text-primary"
+                          onClick={() => handleAddToList(recipe)}
+                        >
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          <span className="text-xs">Add to list</span>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
