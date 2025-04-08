@@ -31,7 +31,22 @@ export const useGroceryRecipeIntegration = (
     });
   };
 
+  const addIngredientToRecipe = (recipe: Recipe, ingredientName: string, quantity: string) => {
+    if (!ingredientName.trim()) {
+      toast({
+        title: "Error",
+        description: "Ingredient name is required",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Call the addGroceryItem function with recipe ID to associate it
+    return addGroceryItem(ingredientName, quantity, undefined, recipe.id);
+  };
+
   return {
-    handleCompleteRecipe
+    handleCompleteRecipe,
+    addIngredientToRecipe
   };
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -34,6 +35,7 @@ const Index = () => {
     deleteRecipe,
     recipes,
     onCompleteRecipe,
+    addIngredientToRecipe,
     isLoading,
     counts
   } = useGroceryList();
@@ -184,6 +186,7 @@ const Index = () => {
                   onCompleteRecipe={onCompleteRecipe}
                   activeCategory={activeCategory}
                   onDeleteRecipe={deleteRecipe}
+                  onAddIngredientToRecipe={addIngredientToRecipe}
                 />
                 
                 <div className="space-y-2 mt-1">

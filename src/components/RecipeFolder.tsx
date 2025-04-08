@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Recipe } from '@/types/grocery';
 import { ChefHat, ChevronDown, ChevronUp, CheckCircle, EyeIcon, EyeOffIcon, Trash2, Plus } from 'lucide-react';
@@ -18,13 +19,15 @@ interface RecipeFolderProps {
   onCompleteRecipe?: (recipe: Recipe) => void;
   activeCategory: string;
   onDeleteRecipe?: (recipeId: string) => void;
+  onAddIngredientToRecipe?: (recipe: Recipe, ingredientName: string, quantity: string) => Promise<void>;
 }
 
 const RecipeFolder: React.FC<RecipeFolderProps> = ({ 
   recipes, 
   onCompleteRecipe,
   activeCategory,
-  onDeleteRecipe
+  onDeleteRecipe,
+  onAddIngredientToRecipe
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
@@ -136,7 +139,7 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     }));
   };
 
-  const addNewIngredient = (recipe: Recipe, recipeId: string) => {
+  const addNewIngredient = async (recipe: Recipe, recipeId: string) => {
     const ingredientData = newIngredients[recipeId];
     
     if (!ingredientData || !ingredientData.name.trim()) {
@@ -148,36 +151,35 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
       return;
     }
     
-    // Create a new recipe with the added ingredient
-    const updatedRecipe = {
-      ...recipe,
-      ingredients: [
-        ...recipe.ingredients,
-        {
-          name: ingredientData.name.trim(),
-          quantity: ingredientData.quantity.trim()
-        }
-      ]
-    };
-    
-    // Call onAddToList with only the new ingredient
-    
-    // Reset the form
-    setNewIngredients(prev => ({
-      ...prev,
-      [recipeId]: {name: '', quantity: ''}
-    }));
-    
-    // Hide the form
-    setShowAddIngredientForm(prev => ({
-      ...prev,
-      [recipeId]: false
-    }));
-    
-    toast({
-      title: "Ingredient added",
-      description: `"${ingredientData.name}" has been added to your grocery list.`,
-    });
+    // Call onAddIngredientToRecipe to add the ingredient to the grocery list
+    if (onAddIngredientToRecipe) {
+      try {
+        await onAddIngredientToRecipe(
+          recipe, 
+          ingredientData.name.trim(), 
+          ingredientData.quantity.trim()
+        );
+        
+        // Reset the form
+        setNewIngredients(prev => ({
+          ...prev,
+          [recipeId]: {name: '', quantity: ''}
+        }));
+        
+        // Hide the form
+        setShowAddIngredientForm(prev => ({
+          ...prev,
+          [recipeId]: false
+        }));
+      } catch (error) {
+        console.error('Error adding ingredient:', error);
+        toast({
+          title: "Error",
+          description: "Failed to add ingredient to your grocery list.",
+          variant: "destructive"
+        });
+      }
+    }
   };
 
   return (
