@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -18,7 +17,6 @@ import { Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 const Index = () => {
-  
   const {
     groceries,
     allGroceries,
@@ -91,6 +89,11 @@ const Index = () => {
       });
     }).catch(error => {
       console.error('Failed to save recipe:', error);
+      toast({
+        title: "Failed to save recipe",
+        description: "An error occurred while saving your recipe.",
+        variant: "destructive"
+      });
     });
   };
 
@@ -100,7 +103,7 @@ const Index = () => {
     setIsPremium(true);
     toast({
       title: "Welcome to Premium!",
-      description: "You now have access to all premium features."
+      description: "You now have access to all premium features including AI-powered ingredient extraction."
     });
   };
   

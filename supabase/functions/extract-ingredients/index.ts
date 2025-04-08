@@ -3,6 +3,7 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const googleCloudApiKey = Deno.env.get('GOOGLE_CLOUD_API_KEY');
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,49 +27,97 @@ serve(async (req) => {
       });
     }
 
-    if (!openAIApiKey) {
-      console.error('OPENAI_API_KEY environment variable not set');
-      return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     let ingredients;
+    let analysisMethod = '';
     
     // Prioritize image-based extraction if available
     if (imageBase64) {
       console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
-      try {
-        // First try to use OpenAI for image extraction
-        ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
-        console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
-      } catch (aiError) {
-        console.error('OpenAI image extraction failed:', aiError);
-        
-        // Check if it's a quota error
-        if (aiError.message && aiError.message.includes('quota')) {
+      
+      // Try OpenAI first - if API key is available
+      if (openAIApiKey) {
+        try {
+          ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
+          console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
+          analysisMethod = 'openai';
+        } catch (aiError) {
+          console.error('OpenAI image extraction failed:', aiError);
+          
+          // If OpenAI fails and Google Cloud Vision is available, try that next
+          if (googleCloudApiKey) {
+            try {
+              console.log('Falling back to Google Cloud Vision API for image analysis...');
+              ingredients = await extractIngredientsWithGoogleVision(imageBase64, userDescription || '');
+              console.log('Successfully extracted ingredients with Google Vision:', JSON.stringify(ingredients));
+              analysisMethod = 'google';
+            } catch (googleError) {
+              console.error('Google Vision extraction failed:', googleError);
+              return new Response(JSON.stringify({ 
+                error: 'Failed to analyze image with both OpenAI and Google Vision. Please try again with a clearer image or use text input.',
+                details: googleError.message
+              }), {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          } else {
+            // No Google fallback available
+            // Check if it's a quota error
+            if (aiError.message && aiError.message.includes('quota')) {
+              return new Response(JSON.stringify({ 
+                error: 'OpenAI API quota exceeded. Please try again later or try the text-based extraction instead.',
+                isQuotaError: true 
+              }), {
+                status: 429, // Too Many Requests
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            } else {
+              return new Response(JSON.stringify({ error: 'Failed to analyze image. Please try again with a clearer image or use text input.' }), {
+                status: 500,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          }
+        }
+      } 
+      // If no OpenAI key but Google Cloud Vision is available
+      else if (googleCloudApiKey) {
+        try {
+          console.log('No OpenAI API key available, using Google Cloud Vision API for image analysis...');
+          ingredients = await extractIngredientsWithGoogleVision(imageBase64, userDescription || '');
+          console.log('Successfully extracted ingredients with Google Vision:', JSON.stringify(ingredients));
+          analysisMethod = 'google';
+        } catch (googleError) {
+          console.error('Google Vision extraction failed:', googleError);
           return new Response(JSON.stringify({ 
-            error: 'OpenAI API quota exceeded. Please try again later or try the text-based extraction instead.',
-            isQuotaError: true 
+            error: 'Failed to analyze image with Google Vision. Please try again with a clearer image or use text input.',
+            details: googleError.message
           }), {
-            status: 429, // Too Many Requests
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        } else {
-          return new Response(JSON.stringify({ error: 'Failed to analyze image. Please try again with a clearer image or use text input.' }), {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+      } else {
+        return new Response(JSON.stringify({ error: 'No image analysis API keys configured. Please configure either OpenAI or Google Cloud Vision API.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
     }
-    // Use text-based extraction as backup only
+    // Use text-based extraction if no image or as fallback
     else if (recipeText) {
       console.log('No image available, processing recipe text:', recipeText.substring(0, 100) + '...');
       try {
-        ingredients = await extractIngredientsWithOpenAI(recipeText);
-        console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
+        if (openAIApiKey) {
+          ingredients = await extractIngredientsWithOpenAI(recipeText);
+          console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
+          analysisMethod = 'openai-text';
+        } else {
+          return new Response(JSON.stringify({ error: 'OpenAI API key not configured for text extraction.' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       } catch (aiError) {
         console.error('OpenAI text extraction failed:', aiError);
         
@@ -97,7 +146,7 @@ serve(async (req) => {
       });
     }
     
-    return new Response(JSON.stringify({ ingredients }), {
+    return new Response(JSON.stringify({ ingredients, analysisMethod }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
@@ -211,6 +260,203 @@ IMPORTANT: If the image is unclear or you cannot identify specific ingredients c
   }
 }
 
+async function extractIngredientsWithGoogleVision(imageBase64, userDescription) {
+  console.log('Sending image to Google Cloud Vision API with description:', userDescription.substring(0, 50));
+
+  try {
+    // Step 1: Analyze the image with Google Cloud Vision API
+    const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleCloudApiKey}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            image: {
+              content: imageBase64
+            },
+            features: [
+              {
+                type: 'LABEL_DETECTION',
+                maxResults: 15
+              },
+              {
+                type: 'TEXT_DETECTION',
+                maxResults: 10
+              },
+              {
+                type: 'OBJECT_LOCALIZATION',
+                maxResults: 15
+              }
+            ]
+          }
+        ]
+      }),
+    });
+
+    if (!visionResponse.ok) {
+      const errorData = await visionResponse.json();
+      console.error('Google Vision API error response:', errorData);
+      throw new Error(`Google Vision API error: ${errorData.error?.message || visionResponse.statusText}`);
+    }
+
+    const visionData = await visionResponse.json();
+    
+    console.log('Google Vision API response:', JSON.stringify(visionData));
+    
+    if (!visionData.responses || !visionData.responses[0]) {
+      throw new Error('Empty response from Google Vision API');
+    }
+    
+    // Extract useful information from the Vision API response
+    const response = visionData.responses[0];
+    
+    // Combine relevant data for ingredient extraction
+    const labels = response.labelAnnotations || [];
+    const objects = response.localizedObjectAnnotations || [];
+    const textAnnotations = response.textAnnotations ? [response.textAnnotations[0]] : [];
+    
+    // Extract food-related labels and objects
+    const foodRelatedItems = [
+      ...labels.map(label => label.description),
+      ...objects.map(obj => obj.name)
+    ];
+    
+    // Extract any text that might describe ingredients
+    const detectedText = textAnnotations.length > 0 ? textAnnotations[0].description : '';
+    
+    console.log('Food related items detected:', foodRelatedItems);
+    console.log('Text detected in image:', detectedText);
+    
+    // Skip OpenAI processing if we don't have any useful data
+    if (foodRelatedItems.length === 0 && !detectedText && !userDescription) {
+      throw new Error('No food items or text detected in the image');
+    }
+    
+    // Step 2: Process the Google Vision results with a specialized prompt to extract ingredients
+    // We'll use a specialized algorithm to convert Google's labels to ingredients
+    const ingredients = extractIngredientsFromGoogleVisionResults(
+      foodRelatedItems, 
+      detectedText, 
+      userDescription
+    );
+    
+    return ingredients;
+  } catch (error) {
+    console.error('Error in extractIngredientsWithGoogleVision:', error);
+    throw error;
+  }
+}
+
+function extractIngredientsFromGoogleVisionResults(foodItems, detectedText, userDescription) {
+  console.log('Processing Google Vision results to extract ingredients');
+  
+  // Filter out non-food items using a basic food-related keyword list
+  const foodKeywords = [
+    'food', 'dish', 'meal', 'ingredient', 'vegetable', 'fruit', 'meat', 
+    'seafood', 'dairy', 'spice', 'herb', 'grain', 'rice', 'pasta', 'sauce',
+    'oil', 'cheese', 'chicken', 'beef', 'pork', 'fish', 'potato', 'tomato',
+    'onion', 'garlic', 'pepper', 'salt', 'salad', 'soup', 'stew', 'curry',
+    'bread', 'pastry', 'dessert', 'cake', 'cookie', 'pie', 'chocolate',
+    'egg', 'milk', 'cream', 'yogurt', 'butter', 'sugar', 'flour', 'bean',
+    'lentil', 'nut', 'seed', 'plant-based'
+  ];
+  
+  // Remove generic non-ingredient items
+  const nonIngredientTerms = [
+    'food', 'dish', 'meal', 'cuisine', 'recipe', 'ingredient', 'snack', 
+    'breakfast', 'lunch', 'dinner', 'plate', 'bowl', 'tableware', 'utensil',
+    'restaurant', 'kitchen', 'cooking', 'baking', 'table', 'dining', 'meal'
+  ];
+  
+  // Filter to likely food items
+  const likelyIngredients = foodItems.filter(item => {
+    // Convert to lowercase for comparison
+    const lowerItem = item.toLowerCase();
+    
+    // Check if it's a likely food item
+    const isFoodRelated = foodKeywords.some(keyword => 
+      lowerItem.includes(keyword) || 
+      lowerItem === keyword
+    );
+    
+    // Exclude generic terms
+    const isGenericTerm = nonIngredientTerms.some(term => 
+      lowerItem === term || 
+      lowerItem === term + 's'
+    );
+    
+    return isFoodRelated && !isGenericTerm;
+  });
+  
+  // Create ingredients list
+  const ingredients = [];
+  
+  // Add user description as context if available
+  if (userDescription && userDescription.trim() !== '') {
+    // Use the user description to see if we can extract a main ingredient
+    const userDescriptionLower = userDescription.toLowerCase();
+    const mainIngredient = {
+      name: userDescription,
+      quantity: "amount visible in image"
+    };
+    
+    // Only add if it's not already in the list
+    if (!ingredients.some(item => item.name.toLowerCase() === userDescriptionLower)) {
+      ingredients.push(mainIngredient);
+    }
+  }
+  
+  // Add detected food items from Vision API
+  for (const item of likelyIngredients) {
+    // Skip if already added (case insensitive)
+    if (ingredients.some(existing => 
+      existing.name.toLowerCase() === item.toLowerCase()
+    )) {
+      continue;
+    }
+    
+    ingredients.push({
+      name: item,
+      quantity: "visible in image" 
+    });
+  }
+  
+  // Process detected text if available
+  if (detectedText && detectedText.length > 0) {
+    // Check if text contains ingredient-like patterns (quantities + items)
+    const lines = detectedText.split('\n');
+    for (const line of lines) {
+      // Look for patterns like "1 cup flour" or "2 tablespoons sugar"
+      const quantityMatch = line.match(/(\d+\s*(?:cup|tbsp|tablespoon|tsp|teaspoon|oz|ounce|lb|pound|g|gram|ml|liter|bunch|slice|piece|clove)s?\s+[\w\s]+)/i);
+      
+      if (quantityMatch) {
+        const [, potentialIngredient] = quantityMatch;
+        
+        // Extract name and quantity
+        const parts = potentialIngredient.split(/\s+/);
+        const quantity = parts.slice(0, 2).join(' ');
+        const name = parts.slice(2).join(' ');
+        
+        // Only add if not a duplicate
+        if (name && name.length > 1 && !ingredients.some(existing => 
+          existing.name.toLowerCase() === name.toLowerCase()
+        )) {
+          ingredients.push({ name, quantity });
+        }
+      }
+    }
+  }
+  
+  // Ensure we have at least one ingredient
+  if (ingredients.length === 0) {
+    throw new Error('Could not identify any food ingredients in the image');
+  }
+  
+  return ingredients;
+}
+
 async function extractIngredientsWithOpenAI(recipeText) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -278,9 +524,3 @@ ONLY return valid JSON without any additional text.`
     throw new Error('Could not parse ingredients from AI response');
   }
 }
-
-function generateDefaultIngredients(foodName) {
-  console.log('Note: No longer using default ingredients fallbacks');
-  return [];
-}
-

@@ -37,7 +37,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const [isExtracting, setIsExtracting] = useState(false);
   const [open, setOpen] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('camera'); // Default to camera tab
+  const [activeTab, setActiveTab] = useState('camera');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -48,12 +48,13 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const [showNameForm, setShowNameForm] = useState(false);
   const [showDescriptionInput, setShowDescriptionInput] = useState(false);
   const [extractionError, setExtractionError] = useState<string | null>(null);
-  
+  const [analysisMethod, setAnalysisMethod] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const descriptionInputRef = useRef<HTMLTextAreaElement>(null);
-  
+
   const form = useForm<RecipeNameFormValues>({
     resolver: zodResolver(recipeNameSchema),
     defaultValues: {
@@ -149,7 +150,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9); // Higher quality for better extraction
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
         setImagePreview(imageDataUrl);
         const stream = video.srcObject as MediaStream;
         const tracks = stream.getTracks();
@@ -178,7 +179,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     try {
       const payload: any = {};
       
-      // Prioritize image extraction
       if (imgBase64) {
         payload.imageBase64 = imgBase64;
         payload.userDescription = description || '';
@@ -200,7 +200,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       }
       
       if (data.error) {
-        // Handle quota error specifically
         if (data.isQuotaError) {
           throw new Error(`OpenAI API quota exceeded. Please try again later or contact support.`);
         }
@@ -209,6 +208,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       
       if (!data.ingredients || !Array.isArray(data.ingredients)) {
         throw new Error('Invalid response from AI service');
+      }
+      
+      if (data.analysisMethod) {
+        setAnalysisMethod(data.analysisMethod);
       }
       
       return data.ingredients;
@@ -230,7 +233,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       return;
     }
     
-    // Check if we have either an image or text
     const hasImage = !!imageBase64;
     const hasText = !!recipeText.trim();
     const hasDescription = !!userDescription.trim();
@@ -244,7 +246,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       return;
     }
     
-    // If we have an image but no description, prompt user
     if (hasImage && !hasDescription) {
       toast({
         title: "Description Recommended",
@@ -254,11 +255,11 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     
     setIsExtracting(true);
     setExtractionError(null);
+    setAnalysisMethod(null);
     
     try {
       let ingredients;
       
-      // Prioritize image extraction
       if (hasImage) {
         try {
           ingredients = await extractIngredientsWithAI('', imageBase64!, userDescription);
@@ -266,11 +267,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         } catch (aiError) {
           console.error('Image AI extraction failed:', aiError);
           
-          // Handle quota exceeded error
           if (aiError.message && aiError.message.includes('quota')) {
             setExtractionError("OpenAI API quota exceeded. Please try again later or try text-based extraction instead.");
             
-            // Show special toast for quota error
             toast({
               title: "API Quota Exceeded",
               description: "The AI service has reached its usage limit. Please try again later or use text extraction instead.",
@@ -285,18 +284,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           return;
         }
       } else if (hasText) {
-        // Text-based extraction
         try {
           ingredients = await extractIngredientsWithAI(recipeText);
           console.log("Extracted ingredients from text:", ingredients);
         } catch (aiError) {
           console.error('Text AI extraction failed:', aiError);
           
-          // Handle quota exceeded error
           if (aiError.message && aiError.message.includes('quota')) {
             setExtractionError("OpenAI API quota exceeded. Please try again later.");
             
-            // Show special toast for quota error
             toast({
               title: "API Quota Exceeded",
               description: "The AI service has reached its usage limit. Please try again later.",
@@ -318,7 +314,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         return;
       }
       
-      // Update usage count for free tier
       if (!isPremium) {
         const newCount = usageCount + 1;
         setUsageCount(newCount);
@@ -336,16 +331,17 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           });
         }
       } else {
+        const methodText = analysisMethod ? 
+          (analysisMethod.includes('google') ? ' using Google Vision' : ' using OpenAI') : '';
+          
         toast({
           title: "Ingredients extracted",
-          description: `Found ${ingredients.length} ingredients for your dish.`
+          description: `Found ${ingredients.length} ingredients${methodText} for your dish.`
         });
       }
       
-      // Set extracted ingredients and show name form
       setExtractedIngredients(ingredients);
       
-      // Set default recipe name
       let defaultName = '';
       if (hasDescription) {
         defaultName = userDescription.trim();
@@ -378,6 +374,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setShowNameForm(false);
     setExtractedIngredients([]);
     setExtractionError(null);
+    setAnalysisMethod(null);
     form.reset();
   };
 
@@ -387,6 +384,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setUserDescription('');
     setShowDescriptionInput(false);
     setExtractionError(null);
+    setAnalysisMethod(null);
   };
 
   return (
@@ -425,6 +423,11 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 
                 <div className="text-sm text-muted-foreground">
                   {extractedIngredients.length} ingredients extracted
+                  {analysisMethod && (
+                    <span className="ml-1">
+                      using {analysisMethod.includes('google') ? 'Google Vision AI' : 'OpenAI'}
+                    </span>
+                  )}
                 </div>
                 
                 <DialogFooter className="mt-4">
