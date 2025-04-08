@@ -36,8 +36,7 @@ export const useGroceryList = () => {
 
   // Recipe-grocery integration
   const { 
-    handleCompleteRecipe,
-    handleAddToList
+    handleCompleteRecipe
   } = useGroceryRecipeIntegration(addGroceryItem, toggleCompletion, allGroceries);
 
   // Determine overall loading state
@@ -59,7 +58,6 @@ export const useGroceryList = () => {
     saveRecipe,
     deleteRecipe,
     onCompleteRecipe: handleCompleteRecipe,
-    onAddToList: handleAddToList,
     isLoading,
     counts,
   };

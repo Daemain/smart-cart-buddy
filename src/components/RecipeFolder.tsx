@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Recipe } from '@/types/grocery';
 import { ChefHat, ChevronDown, ChevronUp, CheckCircle, EyeIcon, EyeOffIcon, Trash2, Plus } from 'lucide-react';
@@ -16,7 +15,6 @@ import { Input } from '@/components/ui/input';
 
 interface RecipeFolderProps {
   recipes: Recipe[];
-  onAddToList: (recipe: Recipe) => void;
   onCompleteRecipe?: (recipe: Recipe) => void;
   activeCategory: string;
   onDeleteRecipe?: (recipeId: string) => void;
@@ -24,7 +22,6 @@ interface RecipeFolderProps {
 
 const RecipeFolder: React.FC<RecipeFolderProps> = ({ 
   recipes, 
-  onAddToList, 
   onCompleteRecipe,
   activeCategory,
   onDeleteRecipe
@@ -79,7 +76,7 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     setCheckedIngredients(updatedChecks);
     
     toast({
-      title: "Recipe added to list",
+      title: "Recipe checked",
       description: `All ingredients from "${recipe.title}" have been checked.`,
     });
   };
@@ -112,16 +109,6 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     }
     
     return ingredientsCount > 0 ? Math.round((checkedCount / ingredientsCount) * 100) : 0;
-  };
-
-  const handleAddToList = (recipe: Recipe) => {
-    if (onAddToList) {
-      onAddToList(recipe);
-      toast({
-        title: "Recipe added to list",
-        description: `Ingredients from "${recipe.title}" have been added to your grocery list.`,
-      });
-    }
   };
 
   const toggleAddIngredientForm = (recipeId: string) => {
@@ -174,16 +161,6 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     };
     
     // Call onAddToList with only the new ingredient
-    if (onAddToList) {
-      const singleIngredientRecipe = {
-        ...recipe,
-        ingredients: [{
-          name: ingredientData.name.trim(),
-          quantity: ingredientData.quantity.trim()
-        }]
-      };
-      onAddToList(singleIngredientRecipe);
-    }
     
     // Reset the form
     setNewIngredients(prev => ({
@@ -364,15 +341,6 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
                         >
                           <Plus className="h-4 w-4 mr-1.5" />
                           <span className="text-xs">Add ingredient</span>
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 bg-primary/5 hover:bg-primary/10 text-primary"
-                          onClick={() => handleAddToList(recipe)}
-                        >
-                          <Plus className="h-4 w-4 mr-1.5" />
-                          <span className="text-xs">Add to list</span>
                         </Button>
                         <Button
                           variant="ghost"

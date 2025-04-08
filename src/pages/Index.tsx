@@ -34,7 +34,6 @@ const Index = () => {
     deleteRecipe,
     recipes,
     onCompleteRecipe,
-    onAddToList,
     isLoading,
     counts
   } = useGroceryList();
@@ -182,7 +181,6 @@ const Index = () => {
                 
                 <RecipeFolder 
                   recipes={recipes} 
-                  onAddToList={onAddToList} 
                   onCompleteRecipe={onCompleteRecipe}
                   activeCategory={activeCategory}
                   onDeleteRecipe={deleteRecipe}
