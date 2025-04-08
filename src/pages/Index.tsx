@@ -91,8 +91,11 @@ const Index = () => {
     quantity: string;
   }[], recipeName: string) => {
     saveRecipe(recipeName, ingredients).then(newRecipe => {
-      ingredients.forEach(ingredient => {
-        addGroceryItem(ingredient.name, ingredient.quantity || '1', undefined, newRecipe.id);
+      // Instead of adding ingredients directly to the list, we'll just save the recipe
+      // and let the RecipeFolder component handle displaying them
+      toast({
+        title: "Recipe extracted",
+        description: `"${recipeName}" with ${ingredients.length} ingredients has been saved to your recipes.`,
       });
     }).catch(error => {
       console.error('Failed to save recipe:', error);
