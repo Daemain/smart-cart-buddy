@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
@@ -36,7 +37,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const [isExtracting, setIsExtracting] = useState(false);
   const [open, setOpen] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('text');
+  const [activeTab, setActiveTab] = useState('camera'); // Default to camera tab
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
@@ -146,7 +147,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       const ctx = canvas.getContext('2d');
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageDataUrl = canvas.toDataURL('image/jpeg');
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9); // Higher quality for better extraction
         setImagePreview(imageDataUrl);
         const stream = video.srcObject as MediaStream;
         const tracks = stream.getTracks();
@@ -174,25 +175,32 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const extractIngredientsWithAI = async (text: string, imgBase64?: string, description?: string) => {
     try {
       const payload: any = {};
-      if (text) {
-        payload.recipeText = text;
-      }
-      if (imgBase64 && description) {
+      
+      // Prioritize image extraction
+      if (imgBase64) {
         payload.imageBase64 = imgBase64;
-        payload.userDescription = description;
+        payload.userDescription = description || '';
+        console.log("Sending image for extraction with description:", description ? description.substring(0, 50) + '...' : 'No description');
+      } else if (text) {
+        payload.recipeText = text;
+        console.log("Sending text for extraction:", text.substring(0, 50) + '...');
       }
+      
       const {
         data,
         error
       } = await supabase.functions.invoke('extract-ingredients', {
         body: payload
       });
+      
       if (error) {
         throw new Error(`Edge function error: ${error.message}`);
       }
+      
       if (!data.ingredients || !Array.isArray(data.ingredients)) {
         throw new Error('Invalid response from AI service');
       }
+      
       return data.ingredients;
     } catch (error) {
       console.error('Error extracting ingredients with AI:', error);
@@ -211,78 +219,134 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setOpen(false);
       return;
     }
-    const hasText = !!recipeText.trim();
+    
+    // Check if we have either an image or text
     const hasImage = !!imageBase64;
+    const hasText = !!recipeText.trim();
     const hasDescription = !!userDescription.trim();
-    if (!hasText && (!hasImage || !hasDescription)) {
+    
+    if (!hasImage && !hasText) {
       toast({
         title: "Missing Information",
-        description: "Please either enter a dish/recipe text, or upload an image with a description.",
+        description: "Please either take a photo/upload an image or enter recipe text.",
         variant: "destructive"
       });
       return;
     }
+    
+    // If we have an image but no description, prompt user
+    if (hasImage && !hasDescription) {
+      toast({
+        title: "Description Recommended",
+        description: "Adding a brief description will improve extraction accuracy.",
+      });
+    }
+    
     setIsExtracting(true);
     try {
       let ingredients;
-      try {
-        if (hasText) {
-          ingredients = await extractIngredientsWithAI(recipeText);
-        } else if (hasImage && hasDescription) {
+      
+      // Prioritize image extraction
+      if (hasImage) {
+        try {
           ingredients = await extractIngredientsWithAI('', imageBase64!, userDescription);
+          console.log("Extracted ingredients from image:", ingredients);
+        } catch (aiError) {
+          console.error('Image AI extraction failed, checking fallback options:', aiError);
+          
+          // Try text-based extraction if we have a description or text
+          if (hasDescription) {
+            try {
+              ingredients = await extractIngredientsWithAI(userDescription);
+              console.log("Fallback to description extraction successful:", ingredients);
+            } catch (textError) {
+              console.error('Description fallback also failed:', textError);
+              ingredients = parseRecipe(userDescription);
+              console.log("Using basic parsing on description:", ingredients);
+            }
+          } else if (hasText) {
+            try {
+              ingredients = await extractIngredientsWithAI(recipeText);
+              console.log("Fallback to text extraction successful:", ingredients);
+            } catch (textError) {
+              console.error('Text fallback also failed:', textError);
+              ingredients = parseRecipe(recipeText);
+              console.log("Using basic parsing on text:", ingredients);
+            }
+          } else {
+            toast({
+              title: "Extraction failed",
+              description: "Please try adding a description or entering recipe text.",
+              variant: "destructive"
+            });
+            setIsExtracting(false);
+            return;
+          }
         }
-        console.log("Extracted ingredients:", ingredients);
-      } catch (aiError) {
-        console.error('AI extraction failed, falling back to basic parsing:', aiError);
-        toast({
-          title: "AI extraction unavailable",
-          description: "Using basic extraction instead. Results may be limited."
-        });
-
-        ingredients = hasText ? parseRecipe(recipeText) : parseRecipe(userDescription);
+      } else if (hasText) {
+        // Text-based extraction as fallback
+        try {
+          ingredients = await extractIngredientsWithAI(recipeText);
+          console.log("Extracted ingredients from text:", ingredients);
+        } catch (aiError) {
+          console.error('Text AI extraction failed:', aiError);
+          ingredients = parseRecipe(recipeText);
+          console.log("Using basic parsing on text:", ingredients);
+        }
       }
+      
       if (!ingredients || ingredients.length === 0) {
         toast({
           title: "No ingredients found",
-          description: "We couldn't extract any ingredients. Please try being more specific or use a different recipe.",
+          description: "We couldn't extract any ingredients. Please try a clearer image or more specific description.",
           variant: "destructive"
         });
-      } else {
-        if (!isPremium) {
-          const newCount = usageCount + 1;
-          setUsageCount(newCount);
-          localStorage.setItem('recipeExtractorUsageCount', newCount.toString());
-          if (freeUsesRemaining === 1) {
-            toast({
-              title: "Ingredients extracted",
-              description: `Found ${ingredients.length} ingredients. This was your last free extraction.`
-            });
-          } else {
-            toast({
-              title: "Ingredients extracted",
-              description: `Found ${ingredients.length} ingredients. You have ${freeUsesRemaining - 1} free extractions left.`
-            });
-          }
+        setIsExtracting(false);
+        return;
+      }
+      
+      // Update usage count for free tier
+      if (!isPremium) {
+        const newCount = usageCount + 1;
+        setUsageCount(newCount);
+        localStorage.setItem('recipeExtractorUsageCount', newCount.toString());
+        
+        if (freeUsesRemaining === 1) {
+          toast({
+            title: "Ingredients extracted",
+            description: `Found ${ingredients.length} ingredients. This was your last free extraction.`
+          });
         } else {
           toast({
             title: "Ingredients extracted",
-            description: `Found ${ingredients.length} ingredients for your dish.`
+            description: `Found ${ingredients.length} ingredients. You have ${freeUsesRemaining - 1} free extractions left.`
           });
         }
-        setExtractedIngredients(ingredients);
-        let defaultName = '';
-        if (hasText) {
-          defaultName = recipeText.trim();
-        } else if (hasDescription) {
-          defaultName = userDescription.trim();
-        }
-        if (defaultName.split(' ').length <= 3) {
-          form.setValue('recipeName', defaultName.charAt(0).toUpperCase() + defaultName.slice(1));
-        } else {
-          form.setValue('recipeName', 'My Recipe');
-        }
-        setShowNameForm(true);
+      } else {
+        toast({
+          title: "Ingredients extracted",
+          description: `Found ${ingredients.length} ingredients for your dish.`
+        });
       }
+      
+      // Set extracted ingredients and show name form
+      setExtractedIngredients(ingredients);
+      
+      // Set default recipe name
+      let defaultName = '';
+      if (hasDescription) {
+        defaultName = userDescription.trim();
+      } else if (hasText) {
+        defaultName = recipeText.trim();
+      }
+      
+      if (defaultName.split(' ').length <= 3) {
+        form.setValue('recipeName', defaultName.charAt(0).toUpperCase() + defaultName.slice(1));
+      } else {
+        form.setValue('recipeName', 'My Recipe');
+      }
+      
+      setShowNameForm(true);
     } catch (error) {
       console.error('Extraction error:', error);
       toast({
@@ -404,9 +468,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         ) : (
           <>
             <DialogHeader className="my-[8px]">
-              <DialogTitle className="text-base">Extract Ingredients for Any Dish</DialogTitle>
+              <DialogTitle className="text-base">Extract Ingredients from Food Images</DialogTitle>
               <DialogDescription className="font-light text-sm">
-                {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Enter a dish name, paste a recipe, or upload an image to get ingredients"}
+                {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Take a photo or upload an image of food to extract ingredients"}
               </DialogDescription>
             </DialogHeader>
             
@@ -446,7 +510,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 ) : showDescriptionInput ? (
                   <div className="space-y-4">
                     <div className="relative">
-                      <img src={imagePreview} alt="Recipe" className="w-full max-h-48 object-contain rounded-md border" />
+                      <img src={imagePreview} alt="Food" className="w-full max-h-48 object-contain rounded-md border" />
                       <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80" onClick={clearImage}>
                         <X className="h-4 w-4" />
                       </Button>
@@ -454,38 +518,46 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     
                     <div className="grid gap-2">
                       <label htmlFor="image-description" className="text-sm font-medium">
-                        Describe what's in the image
+                        What's in the image? (optional but recommended)
                       </label>
                       <Textarea 
                         id="image-description" 
-                        placeholder="E.g., 'Homemade chocolate chip cookies' or 'A page from my grandmother's lasagna recipe'" 
-                        rows={3} 
+                        placeholder="E.g., 'Homemade chocolate chip cookies' or 'Nigerian jollof rice'" 
+                        rows={2} 
                         value={userDescription} 
                         onChange={e => setUserDescription(e.target.value)}
                         ref={descriptionInputRef}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Adding details helps extract ingredients more accurately
+                        A brief description can help identify ingredients more accurately
                       </p>
                     </div>
                   </div>
                 ) : (
-                  <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  <Tabs defaultValue="camera" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid grid-cols-3 mb-4">
-                      <TabsTrigger value="text">Text</TabsTrigger>
-                      <TabsTrigger value="image">Upload</TabsTrigger>
                       <TabsTrigger value="camera">Camera</TabsTrigger>
+                      <TabsTrigger value="image">Upload</TabsTrigger>
+                      <TabsTrigger value="text">Text</TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="text" className="mt-0">
-                      <div className="grid gap-2">
-                        <label htmlFor="recipe-text" className="text-sm font-medium">
-                          Enter a dish or paste a recipe
-                        </label>
-                        <Textarea id="recipe-text" placeholder="Type a dish name (e.g., 'Egusi' or 'Lasagna') or paste a full recipe..." rows={6} value={recipeText} onChange={e => setRecipeText(e.target.value)} />
-                        <p className="text-xs text-muted-foreground">
-                          You can type a food name like "Egusi" or "Jollof Rice" to get ingredients
-                        </p>
+                    <TabsContent value="camera" className="mt-0">
+                      <div className="grid gap-4">
+                        <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={startCapture}>
+                          <div className="flex flex-col items-center gap-2">
+                            <Camera className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium">
+                              Take a photo of your food or recipe
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Snap a clear picture for best results
+                            </p>
+                          </div>
+                        </div>
+                        <Button className="w-full" onClick={startCapture}>
+                          <Camera className="mr-2 h-4 w-4" />
+                          Open Camera
+                        </Button>
                       </div>
                     </TabsContent>
                     
@@ -493,7 +565,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                       {imagePreview ? (
                         <div className="space-y-4">
                           <div className="relative">
-                            <img src={imagePreview} alt="Recipe" className="w-full max-h-48 object-contain rounded-md border" />
+                            <img src={imagePreview} alt="Food" className="w-full max-h-48 object-contain rounded-md border" />
                             <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80" onClick={clearImage}>
                               <X className="h-4 w-4" />
                             </Button>
@@ -501,11 +573,17 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           
                           <div className="grid gap-2">
                             <label htmlFor="image-description" className="text-sm font-medium">
-                              Describe what's in the image
+                              What's in the image? (optional but recommended)
                             </label>
-                            <Textarea id="image-description" placeholder="E.g., 'Homemade chocolate chip cookies' or 'A page from my grandmother's lasagna recipe'" rows={3} value={userDescription} onChange={e => setUserDescription(e.target.value)} />
+                            <Textarea 
+                              id="image-description" 
+                              placeholder="E.g., 'Homemade chocolate chip cookies' or 'Nigerian jollof rice'" 
+                              rows={2}
+                              value={userDescription} 
+                              onChange={e => setUserDescription(e.target.value)}
+                            />
                             <p className="text-xs text-muted-foreground">
-                              Adding details helps extract ingredients more accurately
+                              A brief description can help identify ingredients more accurately
                             </p>
                           </div>
                         </div>
@@ -514,7 +592,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           <div className="flex flex-col items-center gap-2">
                             <Image className="h-8 w-8 text-muted-foreground" />
                             <p className="text-sm font-medium">
-                              Click to upload a recipe image
+                              Click to upload a food image
                             </p>
                             <p className="text-xs text-muted-foreground">
                               or drag and drop here
@@ -531,23 +609,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                       )}
                     </TabsContent>
                     
-                    <TabsContent value="camera" className="mt-0">
-                      <div className="grid gap-4">
-                        <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={startCapture}>
-                          <div className="flex flex-col items-center gap-2">
-                            <Camera className="h-8 w-8 text-muted-foreground" />
-                            <p className="text-sm font-medium">
-                              Take a photo of your recipe
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Use your device camera to capture a recipe
-                            </p>
-                          </div>
-                        </div>
-                        <Button variant="outline" className="w-full" onClick={startCapture}>
-                          <Camera className="mr-2 h-4 w-4" />
-                          Open Camera
-                        </Button>
+                    <TabsContent value="text" className="mt-0">
+                      <div className="grid gap-2">
+                        <label htmlFor="recipe-text" className="text-sm font-medium">
+                          Enter a dish or paste a recipe
+                        </label>
+                        <Textarea id="recipe-text" placeholder="Type a dish name (e.g., 'Egusi' or 'Lasagna') or paste a full recipe..." rows={6} value={recipeText} onChange={e => setRecipeText(e.target.value)} />
+                        <p className="text-xs text-muted-foreground">
+                          You can type a food name like "Egusi" or "Jollof Rice" to get ingredients
+                        </p>
                       </div>
                     </TabsContent>
                   </Tabs>
@@ -557,7 +627,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                   <Button variant="outline" onClick={() => setOpen(false)} className="my-0">
                     Cancel
                   </Button>
-                  <Button onClick={handleExtract} disabled={isExtracting || !recipeText && (!imagePreview || !userDescription)}>
+                  <Button onClick={handleExtract} disabled={isExtracting || (!recipeText && !imagePreview)}>
                     {isExtracting ? "Extracting..." : "Extract Ingredients"}
                   </Button>
                 </DialogFooter>

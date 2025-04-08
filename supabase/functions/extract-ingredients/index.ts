@@ -17,9 +17,9 @@ serve(async (req) => {
   try {
     const { recipeText, imageBase64, userDescription } = await req.json();
     
-    // Check if we have either text input or image with description
-    if ((!recipeText || recipeText.trim() === '') && (!imageBase64 || !userDescription)) {
-      return new Response(JSON.stringify({ error: 'Either recipe text or an image with description is required' }), {
+    // Check if we have either image with description or text input
+    if (!imageBase64 && (!recipeText || recipeText.trim() === '')) {
+      return new Response(JSON.stringify({ error: 'Either an image or recipe text is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -35,33 +35,41 @@ serve(async (req) => {
 
     let ingredients;
     
-    // Handle image-based extraction with description
-    if (imageBase64 && userDescription) {
-      console.log('Processing image with description:', userDescription.substring(0, 100) + '...');
+    // Prioritize image-based extraction if available
+    if (imageBase64) {
+      console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
       try {
-        ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription);
+        // Enhanced image extraction with more specific system prompt
+        ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
         console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
         console.error('OpenAI image extraction failed:', aiError);
-        // Fallback to text-based extraction using just the description
-        try {
-          ingredients = await extractIngredientsWithOpenAI(userDescription);
-          console.log('Fallback to text extraction successful:', JSON.stringify(ingredients));
-        } catch (textError) {
-          console.error('Text fallback also failed:', textError);
-          ingredients = generateDefaultIngredients(userDescription);
-          console.log('Using fallback ingredients:', JSON.stringify(ingredients));
+        // Fallback only if we have a description
+        if (userDescription) {
+          try {
+            console.log('Attempting fallback to text extraction using description');
+            ingredients = await extractIngredientsWithOpenAI(userDescription);
+            console.log('Fallback to text extraction successful:', JSON.stringify(ingredients));
+          } catch (textError) {
+            console.error('Text fallback also failed:', textError);
+            ingredients = generateDefaultIngredients(userDescription);
+            console.log('Using fallback ingredients:', JSON.stringify(ingredients));
+          }
+        } else {
+          console.log('No description provided for fallback, using generic fallback');
+          ingredients = generateDefaultIngredients('Food dish');
+          console.log('Using generic fallback ingredients:', JSON.stringify(ingredients));
         }
       }
     }
-    // Handle text-based extraction (existing functionality)
+    // Use text-based extraction as backup only
     else if (recipeText) {
-      console.log('Processing food or recipe:', recipeText.substring(0, 100) + '...');
+      console.log('No image available, processing recipe text:', recipeText.substring(0, 100) + '...');
       try {
         ingredients = await extractIngredientsWithOpenAI(recipeText);
         console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
-        console.error('OpenAI extraction failed:', aiError);
+        console.error('OpenAI text extraction failed:', aiError);
         ingredients = generateDefaultIngredients(recipeText);
         console.log('Using fallback ingredients:', JSON.stringify(ingredients));
       }
@@ -91,19 +99,28 @@ async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescriptio
       messages: [
         { 
           role: 'system', 
-          content: `You are a professional chef specialized in global cuisine. Your task is to analyze food images and user descriptions to extract ingredients.
-          Format your response as a VALID JSON ARRAY of objects with "name" and "quantity" properties. Example:
-          [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]
-          BE COMPREHENSIVE - provide ALL typical ingredients for the dish, not just the main ingredients.
-          For traditional dishes, include ALL authentic ingredients.
-          ONLY return valid JSON without any additional text.`
+          content: `You are a professional culinary image analyzer with expertise in identifying food ingredients from images. Your task is to:
+
+1. Analyze the image carefully to identify ALL visible ingredients
+2. Infer additional ingredients that would typically be in the dish but might not be visible
+3. Consider the user's description as supplementary information only
+4. Be specific about quantities where possible, or provide reasonable estimates based on standard recipes
+5. Format your response as a VALID JSON ARRAY of objects with "name" and "quantity" properties
+   Example: [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]
+
+Important guidelines:
+- Focus primarily on what you can see in the image
+- Be comprehensive - include ALL ingredients you can identify in the image
+- For traditional dishes, include authentic ingredients based on what's visible
+- Avoid generic assumptions unless clearly supported by the image
+- ONLY return valid JSON without any additional text or explanations`
         },
         { 
           role: 'user', 
           content: [
             { 
               type: 'text', 
-              text: `Here's a food image along with my description: ${userDescription}. Please extract all the ingredients from this recipe.` 
+              text: userDescription ? `Here's a food image. Additional context: ${userDescription}` : "Here's a food image. Please identify all the ingredients visible in this image."
             },
             {
               type: 'image_url',
@@ -114,7 +131,7 @@ async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescriptio
           ]
         }
       ],
-      temperature: 0.2,
+      temperature: 0.1, // Lower temperature for more deterministic output
     }),
   });
 
@@ -126,7 +143,7 @@ async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescriptio
   const data = await response.json();
   
   const ingredientsText = data.choices[0].message.content;
-  console.log('Raw OpenAI response:', ingredientsText);
+  console.log('Raw OpenAI image analysis response:', ingredientsText);
   
   // Parse the ingredients JSON
   try {
