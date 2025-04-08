@@ -19,9 +19,15 @@ serve(async (req) => {
   try {
     console.log('Starting extract-ingredients function');
     
-    // Check if API keys are available
+    // Log API key availability for debugging
     const hasOpenAIKey = !!openAIApiKey;
     const hasGoogleKey = !!googleCloudApiKey;
+    
+    console.log('API Keys check:', { 
+      openAIKeyAvailable: hasOpenAIKey,
+      googleCloudKeyAvailable: hasGoogleKey,
+      googleKeyLength: hasGoogleKey ? googleCloudApiKey.length : 0
+    });
     
     if (!hasOpenAIKey && !hasGoogleKey) {
       console.error('No API keys configured. Both OpenAI and Google Cloud Vision API keys are missing.');
@@ -51,8 +57,7 @@ serve(async (req) => {
       hasRecipeText: !!recipeText,
       hasImageBase64: !!imageBase64,
       hasUserDescription: !!userDescription,
-      openAIKeyExists: hasOpenAIKey,
-      googleCloudKeyExists: hasGoogleKey
+      imageBase64Length: imageBase64 ? imageBase64.length : 0
     });
     
     // Check if we have either image with description or text input
@@ -71,41 +76,41 @@ serve(async (req) => {
     if (imageBase64) {
       console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
       
-      // Try OpenAI first - if API key is available
-      if (hasOpenAIKey) {
+      // Try Google Cloud Vision first if the key is available
+      if (hasGoogleKey) {
         try {
-          console.log('Attempting extraction with OpenAI Vision API');
-          ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
-          console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
-          analysisMethod = 'openai';
-        } catch (aiError) {
-          console.error('OpenAI image extraction failed:', aiError);
-          apiErrorMessages.push(`OpenAI: ${aiError.message}`);
-          
-          // If OpenAI fails and Google Cloud Vision is available, try that next
-          if (hasGoogleKey) {
-            try {
-              console.log('Falling back to Google Cloud Vision API for image analysis...');
-              ingredients = await extractIngredientsWithGoogleVision(imageBase64, userDescription || '');
-              console.log('Successfully extracted ingredients with Google Vision:', JSON.stringify(ingredients));
-              analysisMethod = 'google';
-            } catch (googleError) {
-              console.error('Google Vision extraction failed:', googleError);
-              apiErrorMessages.push(`Google Vision: ${googleError.message}`);
-            }
-          }
-        }
-      } 
-      // If no OpenAI key but Google Cloud Vision is available
-      else if (hasGoogleKey) {
-        try {
-          console.log('Using Google Cloud Vision API for image analysis...');
+          console.log('Attempting extraction with Google Cloud Vision API');
           ingredients = await extractIngredientsWithGoogleVision(imageBase64, userDescription || '');
           console.log('Successfully extracted ingredients with Google Vision:', JSON.stringify(ingredients));
           analysisMethod = 'google';
         } catch (googleError) {
           console.error('Google Vision extraction failed:', googleError);
           apiErrorMessages.push(`Google Vision: ${googleError.message}`);
+          
+          // If Google Vision fails and OpenAI is available, try that next
+          if (hasOpenAIKey) {
+            try {
+              console.log('Falling back to OpenAI for image analysis...');
+              ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
+              console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
+              analysisMethod = 'openai';
+            } catch (aiError) {
+              console.error('OpenAI image extraction failed:', aiError);
+              apiErrorMessages.push(`OpenAI: ${aiError.message}`);
+            }
+          }
+        }
+      } 
+      // If no Google key but OpenAI is available
+      else if (hasOpenAIKey) {
+        try {
+          console.log('Using OpenAI Vision API for image analysis...');
+          ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
+          console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
+          analysisMethod = 'openai';
+        } catch (aiError) {
+          console.error('OpenAI image extraction failed:', aiError);
+          apiErrorMessages.push(`OpenAI: ${aiError.message}`);
         }
       }
     }
@@ -280,7 +285,11 @@ async function extractIngredientsWithGoogleVision(imageBase64, userDescription) 
     }
     
     // Step 1: Analyze the image with Google Cloud Vision API
-    const visionResponse = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${googleCloudApiKey}`, {
+    console.log('Sending request to Google Cloud Vision API...');
+    const visionApiUrl = `https://vision.googleapis.com/v1/images:annotate?key=${googleCloudApiKey}`;
+    console.log('Using Vision API endpoint:', visionApiUrl.split('?')[0]);
+    
+    const visionResponse = await fetch(visionApiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -310,15 +319,28 @@ async function extractIngredientsWithGoogleVision(imageBase64, userDescription) 
       }),
     });
 
-    if (!visionResponse.ok) {
-      const errorData = await visionResponse.json();
-      console.error('Google Vision API error response:', errorData);
-      throw new Error(`Google Vision API error: ${errorData.error?.message || visionResponse.statusText || 'Unknown API error'}`);
-    }
-
-    const visionData = await visionResponse.json();
+    // Log the status and headers for debugging
+    console.log('Google Vision API response status:', visionResponse.status);
     
-    console.log('Google Vision API response:', JSON.stringify(visionData));
+    const responseText = await visionResponse.text();
+    let visionData;
+    
+    try {
+      visionData = JSON.parse(responseText);
+      console.log('Google Vision API parsed response:', 
+        visionData.error ? 
+        JSON.stringify(visionData.error) : 
+        'Success (response too large to log fully)');
+    } catch (parseError) {
+      console.error('Failed to parse Google Vision API response:', parseError);
+      console.log('Raw response text (first 500 chars):', responseText.substring(0, 500));
+      throw new Error(`Failed to parse Google Vision API response: ${parseError.message}`);
+    }
+    
+    if (visionData.error) {
+      console.error('Google Vision API returned an error:', visionData.error);
+      throw new Error(`Google Vision API error: ${visionData.error.message || JSON.stringify(visionData.error)}`);
+    }
     
     if (!visionData.responses || !visionData.responses[0]) {
       throw new Error('Empty response from Google Vision API');
