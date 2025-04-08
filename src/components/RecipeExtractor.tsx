@@ -423,7 +423,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           </div>
                         </div>}
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                      {!imagePreview && <Button variant="outline" className="w-full" onClick={() => fileInputRef.current?.click()}>
+                      {!imagePreview && <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full my-[16px]">
                           <Upload className="mr-2 h-4 w-4" />
                           Choose File
                         </Button>}
