@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ChefHat, Upload, X, Camera, Image, Sparkles, AlertCircle, Info } from 'lucide-react';
+import { ChefHat, Upload, X, Camera, Image, Sparkles, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -277,45 +278,13 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       
       // For text-based extraction
       if (hasText) {
-        try {
-          // If we have text, we'll skip the image analysis and go directly to text extraction
-          ingredients = await extractTextRecipe(recipeText);
-          console.log("Extracted ingredients from text:", ingredients);
-        } catch (error) {
-          console.error('Text AI extraction failed:', error);
-          setExtractionError("Sorry, we couldn't extract ingredients from your recipe text. Our AI service might be temporarily unavailable. Please try again later.");
-          setIsExtracting(false);
-          
-          toast.error("Extraction Failed", {
-            description: "We couldn't extract ingredients from your text. You can try a simpler description or add ingredients manually.",
-            duration: 8000
-          });
-          
-          return;
-        }
-      } 
+        ingredients = await extractIngredientsWithAI(recipeText);
+        console.log("Extracted ingredients from text:", ingredients);
+      }
       // For image-based extraction
       else if (hasImage) {
-        try {
-          // Fallback to a simple extraction based on the user's description
-          if (hasDescription) {
-            ingredients = extractFromDescription(userDescription);
-            console.log("Created basic ingredients from description:", ingredients);
-          } else {
-            throw new Error("Cannot analyze image and no description provided");
-          }
-        } catch (error) {
-          console.error('Image analysis and fallback failed:', error);
-          setExtractionError("We couldn't analyze your image. Please try adding a detailed description of the dish or enter the recipe as text.");
-          setIsExtracting(false);
-          
-          toast.error("Image Analysis Failed", {
-            description: "Our image analysis service is temporarily unavailable. You can try entering text or a simple description instead.",
-            duration: 8000
-          });
-          
-          return;
-        }
+        ingredients = await extractIngredientsWithAI('', imageBase64, userDescription);
+        console.log("Extracted ingredients from image:", ingredients);
       }
       
       if (!ingredients || ingredients.length === 0) {
@@ -378,84 +347,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     } finally {
       setIsExtracting(false);
     }
-  };
-
-  // Local fallback function for when API services fail
-  const extractTextRecipe = async (recipeText: string) => {
-    // Simple fallback logic for recipe extraction
-    // This is a basic implementation that will work even when the APIs are down
-    
-    const lines = recipeText.split('\n');
-    const ingredients: { name: string, quantity: string }[] = [];
-    
-    // Look for common ingredient patterns
-    for (const line of lines) {
-      // Check for quantity + ingredient pattern (e.g., "2 cups flour")
-      const match = line.match(/^([\d/]+[\s-]?(?:cup|tbsp|tablespoon|tsp|teaspoon|oz|ounce|lb|pound|g|gram|ml|liter|bunch|clove|slice|piece)s?)?(.+)$/i);
-      
-      if (match) {
-        const quantity = match[1]?.trim() || "as needed";
-        const name = match[2]?.trim();
-        
-        if (name && name.length > 1 && !ingredients.some(i => i.name.toLowerCase() === name.toLowerCase())) {
-          ingredients.push({ name, quantity });
-        }
-      }
-      // If no quantity pattern, just use the line as an ingredient if it's reasonable length
-      else if (line.trim().length > 0 && line.trim().length < 50 && !line.includes('recipe') && !line.includes('instructions')) {
-        ingredients.push({ name: line.trim(), quantity: "as needed" });
-      }
-    }
-    
-    // If we couldn't find ingredients, look for basic food words
-    if (ingredients.length === 0) {
-      const foodWords = ['chicken', 'beef', 'pork', 'fish', 'rice', 'pasta', 'potato', 'tomato', 'onion', 'garlic', 
-                         'salt', 'pepper', 'oil', 'butter', 'flour', 'sugar', 'milk', 'cream', 'cheese', 'egg'];
-      
-      const words = recipeText.toLowerCase().split(/\s+/);
-      
-      for (const word of words) {
-        if (foodWords.includes(word) && !ingredients.some(i => i.name.toLowerCase() === word)) {
-          ingredients.push({ name: word, quantity: "as needed" });
-        }
-      }
-    }
-    
-    // Return found ingredients or generic ingredients based on the recipe name
-    if (ingredients.length > 0) {
-      return ingredients;
-    } else {
-      // Last resort - extract main item from recipe text
-      const mainItem = recipeText.split(/\s+/)[0];
-      return [{ name: mainItem || "Main ingredient", quantity: "as needed" }];
-    }
-  };
-  
-  // Local fallback function that extracts ingredients from description
-  const extractFromDescription = (description: string) => {
-    // Very simple extraction that treats the description as the main ingredient
-    const ingredients: { name: string, quantity: string }[] = [];
-    
-    // Add the description as the main ingredient
-    ingredients.push({
-      name: description,
-      quantity: "as needed"
-    });
-    
-    // Look for common ingredients in the description
-    const commonIngredients = ['rice', 'chicken', 'beef', 'fish', 'pork', 'onion', 'garlic', 'tomato', 'potato', 'oil'];
-    
-    for (const ingredient of commonIngredients) {
-      if (description.toLowerCase().includes(ingredient) && 
-          !ingredients.some(i => i.name.toLowerCase() === ingredient)) {
-        ingredients.push({
-          name: ingredient,
-          quantity: "as needed"
-        });
-      }
-    }
-    
-    return ingredients;
   };
 
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
@@ -631,14 +522,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     
                     <TabsContent value="camera" className="mt-0">
                       <div className="grid gap-4">
-                        <Alert>
-                          <Info className="h-4 w-4" />
-                          <AlertTitle>Offline Mode Active</AlertTitle>
-                          <AlertDescription>
-                            We're currently operating in offline mode. You can still extract ingredients, but you'll need to provide a description.
-                          </AlertDescription>
-                        </Alert>
-                        
                         <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={startCapture}>
                           <div className="flex flex-col items-center gap-2">
                             <Camera className="h-8 w-8 text-muted-foreground" />
@@ -700,27 +583,17 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <>
-                          <Alert>
-                            <Info className="h-4 w-4" />
-                            <AlertTitle>Offline Mode Active</AlertTitle>
-                            <AlertDescription>
-                              We're currently operating in offline mode. You can still extract ingredients, but you'll need to provide a description of what's in your image.
-                            </AlertDescription>
-                          </Alert>
-                          
-                          <div className="border-2 border-dashed rounded-md p-8 mt-4 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                            <div className="flex flex-col items-center gap-2">
-                              <Image className="h-8 w-8 text-muted-foreground" />
-                              <p className="text-sm font-medium">
-                                Click to upload a food image
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                or drag and drop here
-                              </p>
-                            </div>
+                        <div className="border-2 border-dashed rounded-md p-8 mt-4 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                          <div className="flex flex-col items-center gap-2">
+                            <Image className="h-8 w-8 text-muted-foreground" />
+                            <p className="text-sm font-medium">
+                              Click to upload a food image
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              or drag and drop here
+                            </p>
                           </div>
-                        </>
+                        </div>
                       )}
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                       {!imagePreview && (
@@ -770,3 +643,4 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
 };
 
 export default RecipeExtractor;
+
