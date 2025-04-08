@@ -352,7 +352,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setShowDescriptionInput(false);
   };
 
-  return <Dialog open={open} onOpenChange={setOpen}>
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="gradient" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit">
           <ChefHat className="h-5 w-5" />
@@ -363,39 +364,43 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       
       <DialogContent className="sm:max-w-md">
         {showNameForm ? (
-          <DialogHeader>
-            <DialogTitle>Name Your Recipe</DialogTitle>
-            <DialogDescription>
-              Give your recipe a name to save it to your collection
-            </DialogDescription>
-          </DialogHeader>
-          
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmitRecipeName)} className="space-y-4">
-              <FormField control={form.control} name="recipeName" render={({
-                field
-              }) => <FormItem>
+          <>
+            <DialogHeader>
+              <DialogTitle>Name Your Recipe</DialogTitle>
+              <DialogDescription>
+                Give your recipe a name to save it to your collection
+              </DialogDescription>
+            </DialogHeader>
+            
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmitRecipeName)} className="space-y-4">
+                <FormField control={form.control} name="recipeName" render={({
+                  field
+                }) => (
+                  <FormItem>
                     <FormLabel>Recipe Name</FormLabel>
                     <FormControl>
                       <Input placeholder="My Delicious Recipe" {...field} />
                     </FormControl>
                     <FormMessage />
-                  </FormItem>} />
-              
-              <div className="text-sm text-muted-foreground">
-                {extractedIngredients.length} ingredients extracted
-              </div>
-              
-              <DialogFooter className="mt-4">
-                <Button type="button" variant="outline" onClick={() => setShowNameForm(false)} className="my-0">
-                  Back
-                </Button>
-                <Button type="submit">
-                  Save Recipe
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+                  </FormItem>
+                )} />
+                
+                <div className="text-sm text-muted-foreground">
+                  {extractedIngredients.length} ingredients extracted
+                </div>
+                
+                <DialogFooter className="mt-4">
+                  <Button type="button" variant="outline" onClick={() => setShowNameForm(false)} className="my-0">
+                    Back
+                  </Button>
+                  <Button type="submit">
+                    Save Recipe
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </>
         ) : (
           <>
             <DialogHeader className="my-[8px]">
@@ -561,7 +566,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           </>
         )}
       </DialogContent>
-    </Dialog>;
+    </Dialog>
+  );
 };
 
 export default RecipeExtractor;
