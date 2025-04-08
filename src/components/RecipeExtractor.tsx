@@ -76,6 +76,39 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
   }, [showDescriptionInput]);
 
+  // Reset states when dialog is closed
+  useEffect(() => {
+    if (!open) {
+      resetStates();
+    }
+  }, [open]);
+
+  const resetStates = () => {
+    setRecipeText('');
+    setUserDescription('');
+    setIsExtracting(false);
+    setActiveTab('camera');
+    setImagePreview(null);
+    setImageBase64(null);
+    setIsCapturing(false);
+    setExtractedIngredients([]);
+    setShowNameForm(false);
+    setShowDescriptionInput(false);
+    setExtractionError(null);
+    setAnalysisMethod(null);
+    form.reset();
+    
+    // Stop any active camera stream
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject as MediaStream;
+      if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+    }
+  };
+
   const processImageForRecipe = async (fileDataUrl: string) => {
     try {
       const base64Data = fileDataUrl.split(',')[1];
@@ -352,15 +385,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
     setOpen(false);
-    setRecipeText('');
-    setImagePreview(null);
-    setImageBase64(null);
-    setUserDescription('');
-    setShowNameForm(false);
-    setExtractedIngredients([]);
-    setExtractionError(null);
-    setAnalysisMethod(null);
-    form.reset();
+    // No need to reset states here as the useEffect will handle it when 'open' changes
   };
 
   const clearImage = () => {
@@ -643,4 +668,3 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
 };
 
 export default RecipeExtractor;
-
