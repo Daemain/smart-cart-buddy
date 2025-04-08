@@ -1,4 +1,3 @@
-
 import { GroceryItem, GroceryList, Recipe } from '@/types/grocery';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
@@ -102,7 +101,7 @@ export const addGroceryItem = async (item: Omit<GroceryItem, 'id' | 'createdAt'>
         is_completed: item.isCompleted,
         is_frequent: item.isFrequent,
         recipe_id: item.recipeId,
-        list_id: listId // This was missing in the previous version
+        list_id: listId
       })
       .select()
       .single();
@@ -118,7 +117,7 @@ export const addGroceryItem = async (item: Omit<GroceryItem, 'id' | 'createdAt'>
       isCompleted: data.is_completed || false,
       isFrequent: data.is_frequent || false,
       createdAt: new Date(data.created_at).getTime(),
-      completedAt: undefined, // Initialize as undefined for new items
+      completedAt: undefined,
       recipeId: data.recipe_id || undefined
     };
   } catch (error) {
@@ -157,7 +156,7 @@ export const updateGroceryItem = async (updatedItem: GroceryItem): Promise<Groce
     
     if (error) throw error;
     
-    return loadGroceries(); // Reload the list to get the latest data
+    return loadGroceries();
   } catch (error) {
     console.error('Error updating grocery item in Supabase:', error);
     
@@ -182,7 +181,7 @@ export const deleteGroceryItem = async (id: string): Promise<GroceryList> => {
     
     if (error) throw error;
     
-    return loadGroceries(); // Reload the list to get the latest data
+    return loadGroceries();
   } catch (error) {
     console.error('Error deleting grocery item from Supabase:', error);
     
@@ -221,7 +220,7 @@ export const toggleItemCompletion = async (id: string): Promise<GroceryList> => 
     
     if (error) throw error;
     
-    return loadGroceries(); // Reload the list to get the latest data
+    return loadGroceries();
   } catch (error) {
     console.error('Error toggling item completion in Supabase:', error);
     
@@ -235,7 +234,6 @@ export const toggleItemCompletion = async (id: string): Promise<GroceryList> => 
         return { 
           ...item, 
           isCompleted: newCompletionState,
-          // Only add completedAt if the item is being completed (not if it's being uncompleted)
           completedAt: newCompletionState ? now : undefined
         };
       }
@@ -268,7 +266,7 @@ export const toggleItemFrequent = async (id: string): Promise<GroceryList> => {
     
     if (error) throw error;
     
-    return loadGroceries(); // Reload the list to get the latest data
+    return loadGroceries();
   } catch (error) {
     console.error('Error toggling item frequent status in Supabase:', error);
     
@@ -334,7 +332,7 @@ export const saveRecipe = async (title: string, ingredients: { name: string; qua
         title: title,
         ingredients: ingredients as unknown as Json,
         instructions: null,
-        user_id: userData.user.id  // This was missing in the previous version
+        user_id: userData.user.id
       })
       .select()
       .single();
@@ -372,5 +370,34 @@ export const saveRecipe = async (title: string, ingredients: { name: string; qua
     localStorage.setItem('recipes', JSON.stringify(updatedRecipes));
     
     return newRecipe;
+  }
+};
+
+// Delete recipe from Supabase
+export const deleteRecipe = async (recipeId: string): Promise<void> => {
+  try {
+    // Get user
+    const { data: userData } = await supabase.auth.getUser();
+    if (!userData.user) throw new Error('User not authenticated');
+    
+    // Delete the recipe
+    const { error } = await supabase
+      .from('recipes')
+      .delete()
+      .eq('id', recipeId)
+      .eq('user_id', userData.user.id);
+    
+    if (error) throw error;
+    
+  } catch (error) {
+    console.error('Failed to delete recipe from Supabase', error);
+    
+    // Fallback to localStorage
+    const savedRecipes = localStorage.getItem('recipes');
+    if (!savedRecipes) return;
+    
+    const recipes: Recipe[] = JSON.parse(savedRecipes);
+    const updatedRecipes = recipes.filter(recipe => recipe.id !== recipeId);
+    localStorage.setItem('recipes', JSON.stringify(updatedRecipes));
   }
 };
