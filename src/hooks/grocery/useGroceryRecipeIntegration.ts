@@ -34,21 +34,49 @@ export const useGroceryRecipeIntegration = (
       return;
     }
     
+    // Get a normalized list of existing ingredients for easier comparison
+    const existingIngredientNames = allGroceries
+      .filter(item => !item.isCompleted) // Only consider uncompleted items
+      .map(item => item.name.toLowerCase().trim());
+    
     let addedCount = 0;
+    let skippedCount = 0;
+    
     validIngredients.forEach(ingredient => {
       const name = ingredient.name.trim();
+      const normalizedName = name.toLowerCase();
       const quantity = typeof ingredient.quantity === 'string' ? ingredient.quantity.trim() : '';
       
-      if (name) {
+      // Check if this ingredient already exists in the list (case-insensitive comparison)
+      const alreadyExists = existingIngredientNames.some(existingName => 
+        existingName === normalizedName
+      );
+      
+      if (name && !alreadyExists) {
         addGroceryItem(name, quantity, undefined, recipe.id);
         addedCount++;
+      } else if (name) {
+        skippedCount++;
       }
     });
     
-    toast({
-      title: "Recipe added to list",
-      description: `${addedCount} ingredients from "${recipe.title}" have been added to your grocery list.`,
-    });
+    // Create an appropriate toast message based on what happened
+    if (addedCount > 0 && skippedCount > 0) {
+      toast({
+        title: "Recipe partially added",
+        description: `Added ${addedCount} new ingredients from "${recipe.title}". Skipped ${skippedCount} ingredients already in your list.`,
+      });
+    } else if (addedCount > 0) {
+      toast({
+        title: "Recipe added to list",
+        description: `${addedCount} ingredients from "${recipe.title}" have been added to your grocery list.`,
+      });
+    } else if (skippedCount > 0) {
+      toast({
+        title: "No new ingredients added",
+        description: `All ingredients from "${recipe.title}" are already in your grocery list.`,
+      });
+    }
   };
   
   const handleCompleteRecipe = (recipe: Recipe) => {
