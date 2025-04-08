@@ -341,7 +341,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 </div>
                 
                 <DialogFooter className="mt-4">
-                  <Button type="button" variant="outline" onClick={() => setShowNameForm(false)} className="my-[16px]">
+                  <Button type="button" variant="outline" onClick={() => setShowNameForm(false)} className="my-0">
                     Back
                   </Button>
                   <Button type="submit">
