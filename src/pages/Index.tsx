@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -47,6 +48,7 @@ const Index = () => {
   const [showPremiumBanner, setShowPremiumBanner] = useState(false);
   const [isPremium, setIsPremium] = useState(false);
   const [hasFreeTrialUsed, setHasFreeTrialUsed] = useState(false);
+  const [recipeUsageCount, setRecipeUsageCount] = useState(0);
   
   useEffect(() => {
     if (profile?.is_premium) {
@@ -55,6 +57,12 @@ const Index = () => {
 
     const trialUsed = localStorage.getItem('premiumTrialUsed') === 'true';
     setHasFreeTrialUsed(trialUsed);
+    
+    const storedCount = localStorage.getItem('recipeUsageCount');
+    if (storedCount) {
+      setRecipeUsageCount(parseInt(storedCount, 10));
+    }
+    
     if (allGroceries.length > 3 && !isPremium && !showPremiumBanner) {
       setShowPremiumBanner(true);
     }
@@ -82,11 +90,27 @@ const Index = () => {
     name: string;
     quantity: string;
   }[], recipeName: string) => {
+    // Check if user can save more recipes (premium or under usage limit)
+    if (!isPremium && recipeUsageCount >= 2) {
+      toast({
+        title: "Premium Feature",
+        description: "You've used your 2 free recipe saves. Upgrade to premium for unlimited recipes.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
     saveRecipe(recipeName, ingredients).then(newRecipe => {
       toast({
         title: "Recipe extracted",
         description: `"${recipeName}" with ${ingredients.length} ingredients has been saved to your recipes.`,
       });
+      
+      // Update local recipe usage count after successful save
+      if (!isPremium) {
+        const newCount = recipeUsageCount + 1;
+        setRecipeUsageCount(newCount);
+      }
     }).catch(error => {
       console.error('Failed to save recipe:', error);
       toast({
@@ -98,6 +122,7 @@ const Index = () => {
   };
 
   const canAccessPremium = isPremium || !hasFreeTrialUsed;
+  const canAccessRecipes = isPremium || recipeUsageCount < 2;
   
   const handleUpgrade = () => {
     setIsPremium(true);
@@ -146,7 +171,13 @@ const Index = () => {
             </div>
           </div>
           
-          <CategoryNav activeCategory={activeCategory} setActiveCategory={setActiveCategory} counts={counts} isPremium={canAccessPremium} />
+          <CategoryNav 
+            activeCategory={activeCategory} 
+            setActiveCategory={setActiveCategory} 
+            counts={counts} 
+            isPremium={canAccessPremium}
+            recipeUsageCount={recipeUsageCount} 
+          />
         </div>
       </header>
 
@@ -184,13 +215,32 @@ const Index = () => {
                   <RecipeExtractor onExtractComplete={handleRecipeExtracted} isPremium={canAccessPremium} />
                 </div>
                 
-                <RecipeFolder 
-                  recipes={recipes} 
-                  onCompleteRecipe={onCompleteRecipe}
-                  activeCategory={activeCategory}
-                  onDeleteRecipe={deleteRecipe}
-                  onAddIngredientToRecipe={addIngredientToRecipe}
-                />
+                {/* Show recipe folder with premium restriction */}
+                {canAccessRecipes ? (
+                  <RecipeFolder 
+                    recipes={recipes} 
+                    onCompleteRecipe={onCompleteRecipe}
+                    activeCategory={activeCategory}
+                    onDeleteRecipe={deleteRecipe}
+                    onAddIngredientToRecipe={addIngredientToRecipe}
+                  />
+                ) : (
+                  <div className="bg-card border border-border rounded-lg p-4 mb-4">
+                    <div className="flex flex-col items-center text-center">
+                      <h3 className="font-medium">Premium Feature</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        You've used your 2 free recipe saves. Upgrade to premium for unlimited recipes.
+                      </p>
+                      <Button 
+                        onClick={handleUpgrade}
+                        className="mt-3 bg-gradient-to-r from-primary to-secondary"
+                        size="sm"
+                      >
+                        Upgrade to Premium
+                      </Button>
+                    </div>
+                  </div>
+                )}
                 
                 <div className="space-y-2 mt-1">
                   {groceries.length === 0 ? (

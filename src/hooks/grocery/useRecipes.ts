@@ -12,7 +12,11 @@ import { useAuth } from '@/contexts/AuthContext';
 export const useRecipes = () => {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+  const [usageCount, setUsageCount] = useState(0);
+  const { user, profile } = useAuth();
+  
+  // Check if user is premium
+  const isPremium = profile?.is_premium || false;
   
   useEffect(() => {
     const fetchRecipes = async () => {
@@ -21,6 +25,12 @@ export const useRecipes = () => {
         try {
           const savedRecipes = await loadRecipes();
           setRecipes(savedRecipes);
+          
+          // Load usage count from localStorage
+          const storedCount = localStorage.getItem('recipeUsageCount');
+          if (storedCount) {
+            setUsageCount(parseInt(storedCount, 10));
+          }
         } catch (error) {
           console.error('Error fetching recipes:', error);
           toast({
@@ -50,15 +60,44 @@ export const useRecipes = () => {
       throw new Error("Authentication required");
     }
     
+    // Check usage limit for non-premium users
+    if (!isPremium && usageCount >= 2) {
+      toast({
+        title: "Premium feature",
+        description: "You've used your 2 free recipe saves. Upgrade to premium for unlimited recipes.",
+        variant: "destructive",
+      });
+      throw new Error("Premium feature required");
+    }
+    
     try {
       const newRecipe = await saveRecipeToStorage(title, ingredients);
       
       setRecipes(prev => [...prev, newRecipe]);
       
-      toast({
-        title: "Recipe saved",
-        description: `"${title}" has been saved to your recipes.`,
-      });
+      // Increment usage count for non-premium users
+      if (!isPremium) {
+        const newCount = usageCount + 1;
+        setUsageCount(newCount);
+        localStorage.setItem('recipeUsageCount', newCount.toString());
+        
+        if (newCount === 2) {
+          toast({
+            title: "Last free use",
+            description: "This was your last free recipe save. Upgrade to premium for unlimited recipes.",
+          });
+        } else {
+          toast({
+            title: "Recipe saved",
+            description: `"${title}" has been saved. You have ${2 - newCount} free recipe saves remaining.`,
+          });
+        }
+      } else {
+        toast({
+          title: "Recipe saved",
+          description: `"${title}" has been saved to your recipes.`,
+        });
+      }
       
       return newRecipe;
     } catch (error) {
@@ -106,6 +145,8 @@ export const useRecipes = () => {
     recipes,
     saveRecipe,
     deleteRecipe,
-    isLoading
+    isLoading,
+    isPremium,
+    usageCount
   };
 };

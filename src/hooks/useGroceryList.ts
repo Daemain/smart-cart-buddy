@@ -22,7 +22,9 @@ export const useGroceryList = () => {
     recipes, 
     saveRecipe,
     deleteRecipe,
-    isLoading: recipesLoading 
+    isLoading: recipesLoading,
+    isPremium,
+    usageCount
   } = useRecipes();
 
   // Filter and categorize groceries
@@ -62,5 +64,7 @@ export const useGroceryList = () => {
     addIngredientToRecipe,
     isLoading,
     counts,
+    isPremium,
+    usageCount
   };
 };

@@ -14,13 +14,15 @@ interface CategoryNavProps {
     suggested: number;
   };
   isPremium?: boolean;
+  recipeUsageCount?: number;
 }
 
 const CategoryNav: React.FC<CategoryNavProps> = ({
   activeCategory,
   setActiveCategory,
   counts,
-  isPremium = false
+  isPremium = false,
+  recipeUsageCount = 0
 }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const [showLeftScroll, setShowLeftScroll] = useState(false);
