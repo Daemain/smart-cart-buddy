@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -39,7 +40,7 @@ serve(async (req) => {
     if (imageBase64) {
       console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
       try {
-        // Enhanced image extraction with more specific system prompt
+        // Enhanced image extraction with improved system prompt
         ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
         console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
@@ -99,28 +100,32 @@ async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescriptio
       messages: [
         { 
           role: 'system', 
-          content: `You are a professional culinary image analyzer with expertise in identifying food ingredients from images. Your task is to:
+          content: `You are an expert food analyzer specializing in ingredient identification from images. Your task is to:
 
-1. Analyze the image carefully to identify ALL visible ingredients
-2. Infer additional ingredients that would typically be in the dish but might not be visible
-3. Consider the user's description as supplementary information only
-4. Be specific about quantities where possible, or provide reasonable estimates based on standard recipes
-5. Format your response as a VALID JSON ARRAY of objects with "name" and "quantity" properties
-   Example: [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]
+1. Look ONLY at what is visibly present in the image and identify the actual ingredients you can see
+2. DO NOT return generic recipe ingredients - only report what you actually observe
+3. Do not make assumptions about standard recipes - analyze the specific image content
+4. Distinguish between different varieties of similar ingredients (e.g., types of rice, specific vegetables)
+5. Describe ingredients with appropriate specificity (e.g., "jasmine rice" not just "rice" if visible)
+6. Include visible quantities where possible (count, approximate volume or weight)
+7. Format your response as a JSON array of objects with "name" and "quantity" properties
 
-Important guidelines:
-- Focus primarily on what you can see in the image
-- Be comprehensive - include ALL ingredients you can identify in the image
-- For traditional dishes, include authentic ingredients based on what's visible
-- Avoid generic assumptions unless clearly supported by the image
-- ONLY return valid JSON without any additional text or explanations`
+IMPORTANT:
+- Focus strictly on what's visible - NOT a generic recipe
+- Never return a generic ingredient list for a dish - analyze what's specifically present
+- If you can't identify specific ingredients clearly, say so rather than guessing
+- Consider the user description only as context, but prioritize what you can actually see
+- Include EXACTLY what's in the image, not a standard recipe
+- The user may have provided a description, but this is SUPPLEMENTARY information. Your primary task is to analyze the image
+
+For example, if shown rice but told it's "jollof rice" in the description, only include ingredients you can actually see (like rice, visible spices, visible vegetables), not the entire jollof rice recipe.`
         },
         { 
           role: 'user', 
           content: [
             { 
               type: 'text', 
-              text: userDescription ? `Here's a food image. Additional context: ${userDescription}` : "Here's a food image. Please identify all the ingredients visible in this image."
+              text: userDescription ? `Here's a food image. Context: ${userDescription}. Please identify ALL the ingredients you can actually SEE in this specific image, not a generic recipe.` : "Here's a food image. Please identify only the ingredients you can actually see in this image."
             },
             {
               type: 'image_url',

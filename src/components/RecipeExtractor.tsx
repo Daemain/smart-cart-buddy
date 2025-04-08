@@ -518,19 +518,25 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     
                     <div className="grid gap-2">
                       <label htmlFor="image-description" className="text-sm font-medium">
-                        What's in the image? (optional but recommended)
+                        What's in the image? (optional but helpful)
                       </label>
                       <Textarea 
                         id="image-description" 
-                        placeholder="E.g., 'Homemade chocolate chip cookies' or 'Nigerian jollof rice'" 
+                        placeholder="E.g., 'White rice' or 'Chicken soup'" 
                         rows={2} 
                         value={userDescription} 
                         onChange={e => setUserDescription(e.target.value)}
                         ref={descriptionInputRef}
                       />
                       <p className="text-xs text-muted-foreground">
-                        A brief description can help identify ingredients more accurately
+                        Just a simple hint to help identify what's in the image
                       </p>
+                    </div>
+                    
+                    <div className="flex justify-end mt-4">
+                      <Button onClick={handleExtract} disabled={isExtracting}>
+                        {isExtracting ? "Analyzing..." : "Analyze Image"}
+                      </Button>
                     </div>
                   </div>
                 ) : (
@@ -573,18 +579,24 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           
                           <div className="grid gap-2">
                             <label htmlFor="image-description" className="text-sm font-medium">
-                              What's in the image? (optional but recommended)
+                              What's in the image? (optional but helpful)
                             </label>
                             <Textarea 
                               id="image-description" 
-                              placeholder="E.g., 'Homemade chocolate chip cookies' or 'Nigerian jollof rice'" 
+                              placeholder="E.g., 'White rice' or 'Chicken soup'" 
                               rows={2}
                               value={userDescription} 
                               onChange={e => setUserDescription(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                              A brief description can help identify ingredients more accurately
+                              Just a simple hint to help identify what's in the image
                             </p>
+                          </div>
+                          
+                          <div className="flex justify-end mt-4">
+                            <Button onClick={handleExtract} disabled={isExtracting}>
+                              {isExtracting ? "Analyzing..." : "Analyze Image"}
+                            </Button>
                           </div>
                         </div>
                       ) : (
@@ -619,18 +631,15 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           You can type a food name like "Egusi" or "Jollof Rice" to get ingredients
                         </p>
                       </div>
+                      
+                      <div className="flex justify-end mt-4">
+                        <Button onClick={handleExtract} disabled={isExtracting || !recipeText.trim()}>
+                          {isExtracting ? "Extracting..." : "Extract Ingredients"}
+                        </Button>
+                      </div>
                     </TabsContent>
                   </Tabs>
                 )}
-                
-                <DialogFooter className="mt-4">
-                  <Button variant="outline" onClick={() => setOpen(false)} className="my-0">
-                    Cancel
-                  </Button>
-                  <Button onClick={handleExtract} disabled={isExtracting || (!recipeText && !imagePreview)}>
-                    {isExtracting ? "Extracting..." : "Extract Ingredients"}
-                  </Button>
-                </DialogFooter>
               </>
             )}
           </>
