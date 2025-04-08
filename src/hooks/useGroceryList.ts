@@ -36,7 +36,6 @@ export const useGroceryList = () => {
 
   // Recipe-grocery integration
   const { 
-    addRecipeToList, 
     handleCompleteRecipe 
   } = useGroceryRecipeIntegration(addGroceryItem, toggleCompletion, allGroceries);
 
@@ -58,7 +57,6 @@ export const useGroceryList = () => {
     recipes,
     saveRecipe,
     deleteRecipe,
-    addRecipeToList,
     onCompleteRecipe: handleCompleteRecipe,
     isLoading,
     counts,

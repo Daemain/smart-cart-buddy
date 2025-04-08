@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Recipe } from '@/types/grocery';
-import { ChefHat, ChevronDown, ChevronUp, PlusCircle, EyeIcon, EyeOffIcon, Trash2 } from 'lucide-react';
+import { ChefHat, ChevronDown, ChevronUp, CheckCircle, EyeIcon, EyeOffIcon, Trash2 } from 'lucide-react';
 import { 
   Collapsible,
   CollapsibleContent,
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
+import { toast } from '@/components/ui/use-toast';
 
 interface RecipeFolderProps {
   recipes: Recipe[];
@@ -61,12 +62,30 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     }));
   };
 
+  // Toggle check for individual ingredient
   const toggleIngredientCheck = (recipeId: string, ingredientIndex: number) => {
     const key = `${recipeId}-${ingredientIndex}`;
     setCheckedIngredients(prev => ({
       ...prev,
       [key]: !prev[key]
     }));
+  };
+
+  // Check all ingredients in a recipe
+  const checkAllIngredients = (recipe: Recipe) => {
+    const updatedChecks = { ...checkedIngredients };
+    
+    recipe.ingredients.forEach((_, index) => {
+      const key = `${recipe.id}-${index}`;
+      updatedChecks[key] = true;
+    });
+    
+    setCheckedIngredients(updatedChecks);
+    
+    toast({
+      title: "Recipe added to list",
+      description: `All ingredients from "${recipe.title}" have been checked.`,
+    });
   };
 
   const handleCompleteRecipe = (recipe: Recipe) => {
@@ -85,6 +104,20 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     if (onDeleteRecipe) {
       onDeleteRecipe(recipeId);
     }
+  };
+
+  // Get completion status of recipe
+  const getRecipeCompletionPercentage = (recipeId: string, ingredientsCount: number) => {
+    let checkedCount = 0;
+    
+    for (let i = 0; i < ingredientsCount; i++) {
+      const key = `${recipeId}-${i}`;
+      if (checkedIngredients[key]) {
+        checkedCount++;
+      }
+    }
+    
+    return ingredientsCount > 0 ? Math.round((checkedCount / ingredientsCount) * 100) : 0;
   };
 
   return (
@@ -124,6 +157,19 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
                         <p className="text-xs text-muted-foreground">
                           {recipe.ingredients.length} ingredients • Added {formatDistanceToNow(recipe.createdAt, { addSuffix: true })}
                         </p>
+                        {expandedRecipes[recipe.id] && (
+                          <div className="mt-1">
+                            <div className="w-full bg-gray-200 rounded-full h-1.5">
+                              <div 
+                                className="bg-primary h-1.5 rounded-full" 
+                                style={{ width: `${getRecipeCompletionPercentage(recipe.id, recipe.ingredients.length)}%` }}
+                              ></div>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {getRecipeCompletionPercentage(recipe.id, recipe.ingredients.length)}% checked
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
@@ -189,10 +235,10 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
                           variant="ghost"
                           size="sm"
                           className="h-8 bg-primary/5 hover:bg-primary/10 text-primary"
-                          onClick={() => onAddToList(recipe)}
+                          onClick={() => checkAllIngredients(recipe)}
                         >
-                          <PlusCircle className="h-4 w-4 mr-1.5" />
-                          <span className="text-xs">Add to list</span>
+                          <CheckCircle className="h-4 w-4 mr-1.5" />
+                          <span className="text-xs">Check all</span>
                         </Button>
                       </div>
                     </div>

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -34,7 +33,6 @@ const Index = () => {
     saveRecipe,
     deleteRecipe,
     recipes,
-    addRecipeToList,
     onCompleteRecipe,
     isLoading,
     counts
@@ -55,7 +53,6 @@ const Index = () => {
       setIsPremium(true);
     }
 
-    // Check if free trial has been used
     const trialUsed = localStorage.getItem('premiumTrialUsed') === 'true';
     setHasFreeTrialUsed(trialUsed);
     if (allGroceries.length > 3 && !isPremium && !showPremiumBanner) {
@@ -64,27 +61,19 @@ const Index = () => {
   }, [allGroceries.length, isPremium, showPremiumBanner, profile]);
   
   const handleToggleCompletion = (id: string) => {
-    // First, get the current item
     const item = allGroceries.find(item => item.id === id);
     if (!item) return;
     
-    // If the item is not completed and we're marking it as completed
     if (!item.isCompleted) {
-      // Toggle the completion status
       toggleCompletion(id);
-      
-      // If we're not already in the completed category, show toast notification
       if (activeCategory !== 'completed') {
         toast({
           title: "Item completed",
           description: "Item moved to completed items",
         });
-        
-        // Change the category to 'completed' 
         setActiveCategory('completed');
       }
     } else {
-      // Regular toggle for uncompleting an item
       toggleCompletion(id);
     }
   };
@@ -94,8 +83,6 @@ const Index = () => {
     quantity: string;
   }[], recipeName: string) => {
     saveRecipe(recipeName, ingredients).then(newRecipe => {
-      // Instead of adding ingredients directly to the list, we'll just save the recipe
-      // and let the RecipeFolder component handle displaying them
       toast({
         title: "Recipe extracted",
         description: `"${recipeName}" with ${ingredients.length} ingredients has been saved to your recipes.`,
@@ -194,7 +181,7 @@ const Index = () => {
                 
                 <RecipeFolder 
                   recipes={recipes} 
-                  onAddToList={addRecipeToList} 
+                  onAddToList={() => {}} 
                   onCompleteRecipe={onCompleteRecipe}
                   activeCategory={activeCategory}
                   onDeleteRecipe={deleteRecipe}
