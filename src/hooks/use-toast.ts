@@ -35,6 +35,10 @@ function toast(props: {
 
 // Add properties to toast function
 toast.defaultDuration = defaultDuration;
+toast.error = sonnerToast.error;
+toast.success = sonnerToast.success;
+toast.info = sonnerToast.info;
+toast.warning = sonnerToast.warning;
 
 // Create our own useToast hook
 function useToast() {
