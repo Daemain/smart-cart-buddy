@@ -19,7 +19,11 @@ serve(async (req) => {
   try {
     console.log('Starting extract-ingredients function');
     
-    if (!openAIApiKey && !googleCloudApiKey) {
+    // Check if API keys are available
+    const hasOpenAIKey = !!openAIApiKey;
+    const hasGoogleKey = !!googleCloudApiKey;
+    
+    if (!hasOpenAIKey && !hasGoogleKey) {
       console.error('No API keys configured. Both OpenAI and Google Cloud Vision API keys are missing.');
       return new Response(JSON.stringify({ 
         error: 'No image analysis API keys configured. Please configure either OpenAI or Google Cloud Vision API.'
@@ -47,8 +51,8 @@ serve(async (req) => {
       hasRecipeText: !!recipeText,
       hasImageBase64: !!imageBase64,
       hasUserDescription: !!userDescription,
-      openAIKeyExists: !!openAIApiKey,
-      googleCloudKeyExists: !!googleCloudApiKey
+      openAIKeyExists: hasOpenAIKey,
+      googleCloudKeyExists: hasGoogleKey
     });
     
     // Check if we have either image with description or text input
@@ -61,13 +65,14 @@ serve(async (req) => {
 
     let ingredients;
     let analysisMethod = '';
+    let apiErrorMessages = [];
     
     // Prioritize image-based extraction if available
     if (imageBase64) {
       console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
       
       // Try OpenAI first - if API key is available
-      if (openAIApiKey) {
+      if (hasOpenAIKey) {
         try {
           console.log('Attempting extraction with OpenAI Vision API');
           ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
@@ -75,9 +80,10 @@ serve(async (req) => {
           analysisMethod = 'openai';
         } catch (aiError) {
           console.error('OpenAI image extraction failed:', aiError);
+          apiErrorMessages.push(`OpenAI: ${aiError.message}`);
           
           // If OpenAI fails and Google Cloud Vision is available, try that next
-          if (googleCloudApiKey) {
+          if (hasGoogleKey) {
             try {
               console.log('Falling back to Google Cloud Vision API for image analysis...');
               ingredients = await extractIngredientsWithGoogleVision(imageBase64, userDescription || '');
@@ -85,102 +91,54 @@ serve(async (req) => {
               analysisMethod = 'google';
             } catch (googleError) {
               console.error('Google Vision extraction failed:', googleError);
-              return new Response(JSON.stringify({ 
-                error: 'Failed to analyze image with both OpenAI and Google Vision. Please try again with a clearer image or use text input.',
-                details: googleError.message
-              }), {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
-            }
-          } else {
-            // No Google fallback available
-            // Check if it's a quota error
-            if (aiError.message && aiError.message.includes('quota')) {
-              return new Response(JSON.stringify({ 
-                error: 'OpenAI API quota exceeded. Please try again later or try the text-based extraction instead.',
-                isQuotaError: true 
-              }), {
-                status: 429, // Too Many Requests
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
-            } else {
-              return new Response(JSON.stringify({ 
-                error: 'Failed to analyze image. Please try again with a clearer image or use text input.',
-                details: aiError.message
-              }), {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-              });
+              apiErrorMessages.push(`Google Vision: ${googleError.message}`);
             }
           }
         }
       } 
       // If no OpenAI key but Google Cloud Vision is available
-      else if (googleCloudApiKey) {
+      else if (hasGoogleKey) {
         try {
-          console.log('No OpenAI API key available, using Google Cloud Vision API for image analysis...');
+          console.log('Using Google Cloud Vision API for image analysis...');
           ingredients = await extractIngredientsWithGoogleVision(imageBase64, userDescription || '');
           console.log('Successfully extracted ingredients with Google Vision:', JSON.stringify(ingredients));
           analysisMethod = 'google';
         } catch (googleError) {
           console.error('Google Vision extraction failed:', googleError);
-          return new Response(JSON.stringify({ 
-            error: 'Failed to analyze image with Google Vision. Please try again with a clearer image or use text input.',
-            details: googleError.message
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-      } else {
-        return new Response(JSON.stringify({ error: 'No image analysis API keys configured. Please configure either OpenAI or Google Cloud Vision API.' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-    }
-    // Use text-based extraction if no image or as fallback
-    else if (recipeText) {
-      console.log('No image available, processing recipe text:', recipeText.substring(0, 100) + '...');
-      try {
-        if (openAIApiKey) {
-          ingredients = await extractIngredientsWithOpenAI(recipeText);
-          console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
-          analysisMethod = 'openai-text';
-        } else {
-          return new Response(JSON.stringify({ error: 'OpenAI API key not configured for text extraction.' }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-      } catch (aiError) {
-        console.error('OpenAI text extraction failed:', aiError);
-        
-        // Check if it's a quota error
-        if (aiError.message && aiError.message.includes('quota')) {
-          return new Response(JSON.stringify({ 
-            error: 'OpenAI API quota exceeded. Please try again later.',
-            isQuotaError: true 
-          }), {
-            status: 429, // Too Many Requests
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        } else {
-          return new Response(JSON.stringify({ 
-            error: 'Failed to analyze recipe text. Try with an image instead.',
-            details: aiError.message
-          }), {
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
+          apiErrorMessages.push(`Google Vision: ${googleError.message}`);
         }
       }
     }
     
+    // Use text-based extraction if no image or as fallback
+    if (!ingredients && recipeText) {
+      console.log('Processing recipe text:', recipeText.substring(0, 100) + '...');
+      
+      if (hasOpenAIKey) {
+        try {
+          ingredients = await extractIngredientsWithOpenAI(recipeText);
+          console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
+          analysisMethod = 'openai-text';
+        } catch (aiError) {
+          console.error('OpenAI text extraction failed:', aiError);
+          apiErrorMessages.push(`OpenAI Text: ${aiError.message}`);
+        }
+      }
+    }
+    
+    // If all methods failed, return a consolidated error
     if (!ingredients || ingredients.length === 0) {
-      return new Response(JSON.stringify({ error: 'No ingredients could be identified. Try a clearer image or more detailed description.' }), {
-        status: 422,
+      const errorMessage = apiErrorMessages.length > 0 
+        ? `AI services failed: ${apiErrorMessages.join('; ')}` 
+        : 'No ingredients could be identified. Try a clearer image or more detailed description.';
+      
+      const isQuotaError = apiErrorMessages.some(msg => msg.includes('quota') || msg.includes('rate_limit'));
+      
+      return new Response(JSON.stringify({ 
+        error: errorMessage,
+        isQuotaError: isQuotaError
+      }), {
+        status: isQuotaError ? 429 : 422,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
@@ -267,7 +225,9 @@ IMPORTANT: If the image is unclear or you cannot identify specific ingredients c
       const errorData = await response.json();
       console.error('OpenAI API error response:', errorData);
       
-      if (errorData.error?.code === 'rate_limit_exceeded') {
+      if (errorData.error?.code === 'rate_limit_exceeded' || 
+          errorData.error?.type === 'insufficient_quota' ||
+          (errorData.error?.message && errorData.error.message.includes('quota'))) {
         throw new Error(`OpenAI API quota exceeded: ${errorData.error?.message || 'Rate limit reached'}`);
       }
       
@@ -552,7 +512,9 @@ ONLY return valid JSON without any additional text.`
     if (!response.ok) {
       const errorData = await response.json();
       
-      if (errorData.error?.code === 'rate_limit_exceeded') {
+      if (errorData.error?.code === 'rate_limit_exceeded' || 
+          errorData.error?.type === 'insufficient_quota' ||
+          (errorData.error?.message && errorData.error.message.includes('quota'))) {
         throw new Error(`OpenAI API quota exceeded: ${errorData.error?.message || 'Rate limit reached'}`);
       }
       
