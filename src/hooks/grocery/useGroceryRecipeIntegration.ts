@@ -31,7 +31,7 @@ export const useGroceryRecipeIntegration = (
     });
   };
 
-  const addIngredientToRecipe = (recipe: Recipe, ingredientName: string, quantity: string) => {
+  const addIngredientToRecipe = async (recipe: Recipe, ingredientName: string, quantity: string) => {
     if (!ingredientName.trim()) {
       toast({
         title: "Error",
@@ -43,10 +43,8 @@ export const useGroceryRecipeIntegration = (
 
     // Call the addGroceryItem function with recipe ID to associate it
     try {
-      toast({
-        title: "Ingredient added",
-        description: `"${ingredientName}" has been added to your grocery list.`,
-      });
+      // Note: We don't show a toast here since the RecipeFolder component
+      // will handle showing appropriate UI feedback
       return addGroceryItem(ingredientName, quantity, undefined, recipe.id);
     } catch (error) {
       console.error("Error adding ingredient:", error);

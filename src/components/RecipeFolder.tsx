@@ -23,18 +23,24 @@ interface RecipeFolderProps {
 }
 
 const RecipeFolder: React.FC<RecipeFolderProps> = ({ 
-  recipes, 
+  recipes: initialRecipes, 
   onCompleteRecipe,
   activeCategory,
   onDeleteRecipe,
   onAddIngredientToRecipe
 }) => {
+  const [recipes, setRecipes] = useState<Recipe[]>(initialRecipes);
   const [isOpen, setIsOpen] = useState(false);
   const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   const [completedRecipes, setCompletedRecipes] = useState<Record<string, boolean>>({});
   const [newIngredients, setNewIngredients] = useState<Record<string, {name: string; quantity: string}>>({});
   const [showAddIngredientForm, setShowAddIngredientForm] = useState<Record<string, boolean>>({});
+
+  // Update local recipes when props change
+  React.useEffect(() => {
+    setRecipes(initialRecipes);
+  }, [initialRecipes]);
 
   if (recipes.length === 0 || (activeCategory !== 'all' && activeCategory !== 'completed')) {
     return null;
@@ -151,40 +157,59 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
       return;
     }
     
-    // Call onAddIngredientToRecipe to add the ingredient to the grocery list
+    // Add ingredient locally to the recipe
+    const newIngredient = {
+      name: ingredientData.name.trim(),
+      quantity: ingredientData.quantity.trim()
+    };
+    
+    // Update local recipes state with the new ingredient
+    setRecipes(currentRecipes => {
+      return currentRecipes.map(r => {
+        if (r.id === recipeId) {
+          return {
+            ...r,
+            ingredients: [...r.ingredients, newIngredient]
+          };
+        }
+        return r;
+      });
+    });
+    
+    // Reset the form
+    setNewIngredients(prev => ({
+      ...prev,
+      [recipeId]: {name: '', quantity: ''}
+    }));
+    
+    // Hide the form
+    setShowAddIngredientForm(prev => ({
+      ...prev,
+      [recipeId]: false
+    }));
+    
+    // Optionally, also call the parent component's handler
     if (onAddIngredientToRecipe) {
       try {
-        await onAddIngredientToRecipe(
-          recipe, 
-          ingredientData.name.trim(), 
-          ingredientData.quantity.trim()
-        );
+        await onAddIngredientToRecipe(recipe, newIngredient.name, newIngredient.quantity);
         
-        // Reset the form
-        setNewIngredients(prev => ({
-          ...prev,
-          [recipeId]: {name: '', quantity: ''}
-        }));
-        
-        // Hide the form
-        setShowAddIngredientForm(prev => ({
-          ...prev,
-          [recipeId]: false
-        }));
-        
-        // Add success notification
         toast({
-          title: "Success",
-          description: `"${ingredientData.name.trim()}" has been added to your grocery list.`,
+          title: "Ingredient added",
+          description: `"${newIngredient.name}" has been added to recipe and grocery list.`,
         });
       } catch (error) {
-        console.error('Error adding ingredient:', error);
+        console.error('Error adding ingredient to grocery list:', error);
         toast({
-          title: "Error",
-          description: "Failed to add ingredient to your grocery list.",
+          title: "Note",
+          description: "Ingredient added to recipe, but failed to add to grocery list.",
           variant: "destructive"
         });
       }
+    } else {
+      toast({
+        title: "Ingredient added",
+        description: `"${newIngredient.name}" has been added to the recipe.`,
+      });
     }
   };
 
