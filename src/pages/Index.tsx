@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -31,9 +32,10 @@ const Index = () => {
     reuseItem,
     suggestedItems,
     saveRecipe,
+    deleteRecipe,
     recipes,
     addRecipeToList,
-    onCompleteRecipe, // This changed from `handleCompleteRecipe` to `onCompleteRecipe`
+    onCompleteRecipe,
     isLoading,
     counts
   } = useGroceryList();
@@ -193,8 +195,9 @@ const Index = () => {
                 <RecipeFolder 
                   recipes={recipes} 
                   onAddToList={addRecipeToList} 
-                  onCompleteRecipe={onCompleteRecipe} // This changed from `handleCompleteRecipe` to `onCompleteRecipe`
+                  onCompleteRecipe={onCompleteRecipe}
                   activeCategory={activeCategory}
+                  onDeleteRecipe={deleteRecipe}
                 />
                 
                 <div className="space-y-2 mt-1">

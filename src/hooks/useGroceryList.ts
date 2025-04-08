@@ -21,6 +21,7 @@ export const useGroceryList = () => {
   const { 
     recipes, 
     saveRecipe,
+    deleteRecipe,
     isLoading: recipesLoading 
   } = useRecipes();
 
@@ -56,6 +57,7 @@ export const useGroceryList = () => {
     suggestedItems,
     recipes,
     saveRecipe,
+    deleteRecipe,
     addRecipeToList,
     onCompleteRecipe: handleCompleteRecipe,
     isLoading,

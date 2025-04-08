@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Recipe } from '@/types/grocery';
-import { ChefHat, ChevronDown, ChevronUp, PlusCircle, EyeIcon, EyeOffIcon } from 'lucide-react';
+import { ChefHat, ChevronDown, ChevronUp, PlusCircle, EyeIcon, EyeOffIcon, Trash2 } from 'lucide-react';
 import { 
   Collapsible,
   CollapsibleContent,
@@ -17,13 +17,15 @@ interface RecipeFolderProps {
   onAddToList: (recipe: Recipe) => void;
   onCompleteRecipe?: (recipe: Recipe) => void;
   activeCategory: string;
+  onDeleteRecipe?: (recipeId: string) => void;
 }
 
 const RecipeFolder: React.FC<RecipeFolderProps> = ({ 
   recipes, 
   onAddToList, 
   onCompleteRecipe,
-  activeCategory
+  activeCategory,
+  onDeleteRecipe
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
@@ -78,6 +80,13 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
     }
   };
 
+  const handleDeleteRecipe = (recipeId: string, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent the click from expanding the recipe
+    if (onDeleteRecipe) {
+      onDeleteRecipe(recipeId);
+    }
+  };
+
   return (
     <div className="mb-6">
       <Collapsible
@@ -117,19 +126,31 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
                         </p>
                       </div>
                     </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="h-8 opacity-70 group-hover:opacity-100 transition-opacity"
-                      onClick={() => toggleRecipeDetails(recipe.id)}
-                    >
-                      {expandedRecipes[recipe.id] ? (
-                        <EyeOffIcon className="h-4 w-4 mr-1" />
-                      ) : (
-                        <EyeIcon className="h-4 w-4 mr-1" />
+                    <div className="flex items-center gap-2">
+                      {activeCategory === 'all' && onDeleteRecipe && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 opacity-70 group-hover:opacity-100 transition-opacity text-destructive hover:text-destructive hover:bg-destructive/10"
+                          onClick={(e) => handleDeleteRecipe(recipe.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       )}
-                      <span className="text-xs">{expandedRecipes[recipe.id] ? 'Hide' : 'View'}</span>
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-8 opacity-70 group-hover:opacity-100 transition-opacity"
+                        onClick={() => toggleRecipeDetails(recipe.id)}
+                      >
+                        {expandedRecipes[recipe.id] ? (
+                          <EyeOffIcon className="h-4 w-4 mr-1" />
+                        ) : (
+                          <EyeIcon className="h-4 w-4 mr-1" />
+                        )}
+                        <span className="text-xs">{expandedRecipes[recipe.id] ? 'Hide' : 'View'}</span>
+                      </Button>
+                    </div>
                   </div>
                   
                   {expandedRecipes[recipe.id] && (

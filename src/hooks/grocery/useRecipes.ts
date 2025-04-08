@@ -4,6 +4,7 @@ import { Recipe } from '@/types/grocery';
 import { 
   loadRecipes,
   saveRecipe as saveRecipeToStorage,
+  deleteRecipe as deleteRecipeFromStorage,
 } from '@/services/groceryService';
 import { toast } from '@/components/ui/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -70,9 +71,41 @@ export const useRecipes = () => {
     }
   };
 
+  const deleteRecipe = async (recipeId: string): Promise<void> => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please log in to delete recipes.",
+        variant: "destructive",
+      });
+      throw new Error("Authentication required");
+    }
+    
+    try {
+      await deleteRecipeFromStorage(recipeId);
+      
+      // Update local state
+      setRecipes(prev => prev.filter(recipe => recipe.id !== recipeId));
+      
+      toast({
+        title: "Recipe deleted",
+        description: "The recipe has been removed from your list.",
+      });
+    } catch (error) {
+      console.error('Error deleting recipe:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete recipe.",
+        variant: "destructive",
+      });
+      throw error;
+    }
+  };
+
   return {
     recipes,
     saveRecipe,
+    deleteRecipe,
     isLoading
   };
 };
