@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -16,10 +15,11 @@ serve(async (req) => {
   }
 
   try {
-    const { recipeText } = await req.json();
+    const { recipeText, imageBase64, userDescription } = await req.json();
     
-    if (!recipeText || recipeText.trim() === '') {
-      return new Response(JSON.stringify({ error: 'Recipe text is required' }), {
+    // Check if we have either text input or image with description
+    if ((!recipeText || recipeText.trim() === '') && (!imageBase64 || !userDescription)) {
+      return new Response(JSON.stringify({ error: 'Either recipe text or an image with description is required' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -33,25 +33,38 @@ serve(async (req) => {
       });
     }
 
-    console.log('Processing food or recipe:', recipeText.substring(0, 100) + '...');
-    
     let ingredients;
     
-    // First try OpenAI
-    if (openAIApiKey) {
+    // Handle image-based extraction with description
+    if (imageBase64 && userDescription) {
+      console.log('Processing image with description:', userDescription.substring(0, 100) + '...');
+      try {
+        ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription);
+        console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
+      } catch (aiError) {
+        console.error('OpenAI image extraction failed:', aiError);
+        // Fallback to text-based extraction using just the description
+        try {
+          ingredients = await extractIngredientsWithOpenAI(userDescription);
+          console.log('Fallback to text extraction successful:', JSON.stringify(ingredients));
+        } catch (textError) {
+          console.error('Text fallback also failed:', textError);
+          ingredients = generateDefaultIngredients(userDescription);
+          console.log('Using fallback ingredients:', JSON.stringify(ingredients));
+        }
+      }
+    }
+    // Handle text-based extraction (existing functionality)
+    else if (recipeText) {
+      console.log('Processing food or recipe:', recipeText.substring(0, 100) + '...');
       try {
         ingredients = await extractIngredientsWithOpenAI(recipeText);
         console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
         console.error('OpenAI extraction failed:', aiError);
-        // If OpenAI fails, we'll fall back to our database
         ingredients = generateDefaultIngredients(recipeText);
         console.log('Using fallback ingredients:', JSON.stringify(ingredients));
       }
-    } else {
-      // If no API key, use fallback
-      ingredients = generateDefaultIngredients(recipeText);
-      console.log('No OpenAI API key, using fallback ingredients:', JSON.stringify(ingredients));
     }
     
     return new Response(JSON.stringify({ ingredients }), {
@@ -65,6 +78,82 @@ serve(async (req) => {
     });
   }
 });
+
+async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescription) {
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${openAIApiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o',
+      messages: [
+        { 
+          role: 'system', 
+          content: `You are a professional chef specialized in global cuisine. Your task is to analyze food images and user descriptions to extract ingredients.
+          Format your response as a VALID JSON ARRAY of objects with "name" and "quantity" properties. Example:
+          [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]
+          BE COMPREHENSIVE - provide ALL typical ingredients for the dish, not just the main ingredients.
+          For traditional dishes, include ALL authentic ingredients.
+          ONLY return valid JSON without any additional text.`
+        },
+        { 
+          role: 'user', 
+          content: [
+            { 
+              type: 'text', 
+              text: `Here's a food image along with my description: ${userDescription}. Please extract all the ingredients from this recipe.` 
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:image/jpeg;base64,${imageBase64}`
+              }
+            }
+          ]
+        }
+      ],
+      temperature: 0.2,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
+  }
+
+  const data = await response.json();
+  
+  const ingredientsText = data.choices[0].message.content;
+  console.log('Raw OpenAI response:', ingredientsText);
+  
+  // Parse the ingredients JSON
+  try {
+    // Try to parse the JSON directly
+    const parsed = JSON.parse(ingredientsText);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return parsed;
+    } else {
+      throw new Error('Invalid response format');
+    }
+  } catch (e) {
+    console.error('Failed to parse OpenAI response as JSON:', e);
+    // Try to extract JSON from text
+    const jsonMatch = ingredientsText.match(/\[(.|\n)*\]/);
+    if (jsonMatch) {
+      try {
+        const extracted = JSON.parse(jsonMatch[0]);
+        if (Array.isArray(extracted) && extracted.length > 0) {
+          return extracted;
+        }
+      } catch (e2) {
+        console.error('Failed to parse JSON from regex match:', e2);
+      }
+    }
+    throw new Error('Could not parse ingredients from AI response');
+  }
+}
 
 async function extractIngredientsWithOpenAI(recipeText) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -134,7 +223,6 @@ ONLY return valid JSON without any additional text.`
   }
 }
 
-// Generate detailed default ingredients for common foods
 function generateDefaultIngredients(foodName) {
   console.log('Generating default ingredients for:', foodName);
   

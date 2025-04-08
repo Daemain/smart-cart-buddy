@@ -12,6 +12,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/integrations/supabase/client';
+
 interface RecipeExtractorProps {
   onExtractComplete: (ingredients: {
     name: string;
@@ -19,68 +20,76 @@ interface RecipeExtractorProps {
   }[], recipeName: string) => void;
   isPremium: boolean;
 }
+
 const recipeNameSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required')
 });
+
 type RecipeNameFormValues = z.infer<typeof recipeNameSchema>;
+
 const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   onExtractComplete,
   isPremium
 }) => {
   const [recipeText, setRecipeText] = useState('');
+  const [userDescription, setUserDescription] = useState('');
   const [isExtracting, setIsExtracting] = useState(false);
   const [open, setOpen] = useState(false);
   const [usageCount, setUsageCount] = useState(0);
   const [activeTab, setActiveTab] = useState('text');
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const [extractedIngredients, setExtractedIngredients] = useState<{
     name: string;
     quantity: string;
   }[]>([]);
   const [showNameForm, setShowNameForm] = useState(false);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  
   const form = useForm<RecipeNameFormValues>({
     resolver: zodResolver(recipeNameSchema),
     defaultValues: {
       recipeName: ''
     }
   });
+
   useEffect(() => {
     const storedCount = localStorage.getItem('recipeExtractorUsageCount');
     if (storedCount) {
       setUsageCount(parseInt(storedCount, 10));
     }
   }, []);
-  const processImageForRecipe = async (imageUrl: string) => {
-    setIsExtracting(true);
+
+  const processImageForRecipe = async (fileDataUrl: string) => {
     try {
+      const base64Data = fileDataUrl.split(',')[1];
+      setImageBase64(base64Data);
+      
       toast({
-        title: "Processing image",
-        description: "Analyzing your recipe image..."
+        title: "Image uploaded",
+        description: "Please add a description of what's in the image to help with ingredient extraction."
       });
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      const extractedText = "Recipe for Pancakes\n" + "2 cups flour\n" + "2 tablespoons sugar\n" + "1 teaspoon baking powder\n" + "1/2 teaspoon salt\n" + "2 eggs\n" + "1 1/2 cups milk\n" + "2 tablespoons melted butter";
-      setRecipeText(extractedText);
-      setActiveTab('text');
-      return extractedText;
+      
+      return true;
     } catch (error) {
       console.error("Error processing image:", error);
       toast({
         title: "Image processing failed",
-        description: "We couldn't extract text from this image. Please try again or enter the recipe manually.",
+        description: "We couldn't process this image. Please try again or enter the recipe manually.",
         variant: "destructive"
       });
-      return null;
-    } finally {
-      setIsExtracting(false);
+      return false;
     }
   };
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    
     if (!file.type.startsWith('image/')) {
       toast({
         title: "Invalid file type",
@@ -89,15 +98,18 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       });
       return;
     }
+    
     const reader = new FileReader();
     reader.onload = event => {
       if (event.target?.result) {
-        setImagePreview(event.target.result as string);
-        processImageForRecipe(event.target.result as string);
+        const dataUrl = event.target.result as string;
+        setImagePreview(dataUrl);
+        processImageForRecipe(dataUrl);
       }
     };
     reader.readAsDataURL(file);
   };
+
   const startCapture = async () => {
     setIsCapturing(true);
     try {
@@ -120,6 +132,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsCapturing(false);
     }
   };
+
   const captureImage = () => {
     if (videoRef.current && canvasRef.current) {
       const video = videoRef.current;
@@ -140,6 +153,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       }
     }
   };
+
   const cancelCapture = () => {
     if (videoRef.current) {
       const stream = videoRef.current.srcObject as MediaStream;
@@ -151,30 +165,45 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     setIsCapturing(false);
   };
-  const extractIngredientsWithAI = async (text: string) => {
+
+  const extractIngredientsWithAI = async (text: string, imgBase64?: string, description?: string) => {
     try {
+      const payload: any = {};
+      
+      if (text) {
+        payload.recipeText = text;
+      }
+      
+      if (imgBase64 && description) {
+        payload.imageBase64 = imgBase64;
+        payload.userDescription = description;
+      }
+      
       const {
         data,
         error
       } = await supabase.functions.invoke('extract-ingredients', {
-        body: {
-          recipeText: text
-        }
+        body: payload
       });
+      
       if (error) {
         throw new Error(`Edge function error: ${error.message}`);
       }
+      
       if (!data.ingredients || !Array.isArray(data.ingredients)) {
         throw new Error('Invalid response from AI service');
       }
+      
       return data.ingredients;
     } catch (error) {
       console.error('Error extracting ingredients with AI:', error);
       throw error;
     }
   };
+
   const handleExtract = async () => {
     const freeUsesRemaining = 2 - usageCount;
+    
     if (!isPremium && usageCount >= 2) {
       toast({
         title: "Free Tries Used",
@@ -184,19 +213,32 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setOpen(false);
       return;
     }
-    if (!recipeText && !imagePreview) {
+    
+    const hasText = !!recipeText.trim();
+    const hasImage = !!imageBase64;
+    const hasDescription = !!userDescription.trim();
+    
+    if (!hasText && (!hasImage || !hasDescription)) {
       toast({
         title: "Missing Information",
-        description: "Please enter a dish, recipe, or upload an image to extract ingredients.",
+        description: "Please either enter a dish/recipe text, or upload an image with a description.",
         variant: "destructive"
       });
       return;
     }
+    
     setIsExtracting(true);
+    
     try {
       let ingredients;
+      
       try {
-        ingredients = await extractIngredientsWithAI(recipeText);
+        if (hasText) {
+          ingredients = await extractIngredientsWithAI(recipeText);
+        } else if (hasImage && hasDescription) {
+          ingredients = await extractIngredientsWithAI('', imageBase64!, userDescription);
+        }
+        
         console.log("Extracted ingredients:", ingredients);
       } catch (aiError) {
         console.error('AI extraction failed, falling back to basic parsing:', aiError);
@@ -206,8 +248,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         });
 
         // Use our fallback parser
-        ingredients = parseRecipe(recipeText);
+        ingredients = hasText ? parseRecipe(recipeText) : parseRecipe(userDescription);
       }
+      
       if (!ingredients || ingredients.length === 0) {
         toast({
           title: "No ingredients found",
@@ -219,6 +262,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           const newCount = usageCount + 1;
           setUsageCount(newCount);
           localStorage.setItem('recipeExtractorUsageCount', newCount.toString());
+          
           if (freeUsesRemaining === 1) {
             toast({
               title: "Ingredients extracted",
@@ -236,15 +280,22 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             description: `Found ${ingredients.length} ingredients for your dish.`
           });
         }
+        
         setExtractedIngredients(ingredients);
 
-        // Set a default recipe name if it's a simple food item
-        let defaultName = recipeText.trim();
+        let defaultName = '';
+        if (hasText) {
+          defaultName = recipeText.trim();
+        } else if (hasDescription) {
+          defaultName = userDescription.trim();
+        }
+        
         if (defaultName.split(' ').length <= 3) {
           form.setValue('recipeName', defaultName.charAt(0).toUpperCase() + defaultName.slice(1));
         } else {
           form.setValue('recipeName', 'My Recipe');
         }
+        
         setShowNameForm(true);
       }
     } catch (error) {
@@ -258,6 +309,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setIsExtracting(false);
     }
   };
+
   const parseRecipe = (text: string): {
     name: string;
     quantity: string;
@@ -268,7 +320,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       quantity: string;
     }[] = [];
 
-    // If it's just a single food item with no line breaks, return it as an ingredient
     if (lines.length === 1 && text.trim().length > 0) {
       return [{
         name: text.trim(),
@@ -297,16 +348,27 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     });
     return ingredients;
   };
+
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
     setOpen(false);
     setRecipeText('');
     setImagePreview(null);
+    setImageBase64(null);
+    setUserDescription('');
     setShowNameForm(false);
     setExtractedIngredients([]);
     form.reset();
   };
-  return <Dialog open={open} onOpenChange={setOpen}>
+
+  const clearImage = () => {
+    setImagePreview(null);
+    setImageBase64(null);
+    setUserDescription('');
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="gradient" className="flex items-center gap-2 h-10 min-w-[40px] sm:min-w-fit">
           <ChefHat className="h-5 w-5" />
@@ -316,7 +378,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       </DialogTrigger>
       
       <DialogContent className="sm:max-w-md">
-        {showNameForm ? <>
+        {showNameForm ? (
+          <>
             <DialogHeader>
               <DialogTitle>Name Your Recipe</DialogTitle>
               <DialogDescription>
@@ -326,15 +389,19 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmitRecipeName)} className="space-y-4">
-                <FormField control={form.control} name="recipeName" render={({
-              field
-            }) => <FormItem>
+                <FormField 
+                  control={form.control} 
+                  name="recipeName" 
+                  render={({ field }) => (
+                    <FormItem>
                       <FormLabel>Recipe Name</FormLabel>
                       <FormControl>
                         <Input placeholder="My Delicious Recipe" {...field} />
                       </FormControl>
                       <FormMessage />
-                    </FormItem>} />
+                    </FormItem>
+                  )} 
+                />
                 
                 <div className="text-sm text-muted-foreground">
                   {extractedIngredients.length} ingredients extracted
@@ -350,7 +417,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                 </DialogFooter>
               </form>
             </Form>
-          </> : <>
+          </>
+        ) : (
+          <>
             <DialogHeader className="my-[8px]">
               <DialogTitle className="text-base">Extract Ingredients for Any Dish</DialogTitle>
               <DialogDescription className="font-light text-sm">
@@ -358,22 +427,26 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
               </DialogDescription>
             </DialogHeader>
             
-            {!isPremium && usageCount >= 2 ? <div className="flex flex-col items-center justify-center py-6">
+            {!isPremium && usageCount >= 2 ? (
+              <div className="flex flex-col items-center justify-center py-6">
                 <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
                 <p className="text-center text-muted-foreground">
                   Upgrade to premium to automatically extract ingredients from recipes
                 </p>
                 <Button className="mt-4" onClick={() => {
-            setOpen(false);
-            toast({
-              title: "Premium Feature",
-              description: "Recipe extraction is a premium feature. Please upgrade to use it."
-            });
-          }}>
+                  setOpen(false);
+                  toast({
+                    title: "Premium Feature",
+                    description: "Recipe extraction is a premium feature. Please upgrade to use it."
+                  });
+                }}>
                   Upgrade to Premium
                 </Button>
-              </div> : <>
-                {isCapturing ? <div className="grid gap-4">
+              </div>
+            ) : (
+              <>
+                {isCapturing ? (
+                  <div className="grid gap-4">
                     <div className="relative">
                       <video ref={videoRef} className="w-full h-64 object-cover rounded-md bg-muted" autoPlay playsInline></video>
                       <canvas ref={canvasRef} className="hidden"></canvas>
@@ -386,7 +459,9 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         Take Photo
                       </Button>
                     </div>
-                  </div> : <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
+                  </div>
+                ) : (
+                  <Tabs defaultValue="text" value={activeTab} onValueChange={setActiveTab} className="w-full">
                     <TabsList className="grid grid-cols-3 mb-4">
                       <TabsTrigger value="text">Text</TabsTrigger>
                       <TabsTrigger value="image">Upload</TabsTrigger>
@@ -398,7 +473,13 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         <label htmlFor="recipe-text" className="text-sm font-medium">
                           Enter a dish or paste a recipe
                         </label>
-                        <Textarea id="recipe-text" placeholder="Type a dish name (e.g., 'Egusi' or 'Lasagna') or paste a full recipe..." rows={6} value={recipeText} onChange={e => setRecipeText(e.target.value)} />
+                        <Textarea 
+                          id="recipe-text" 
+                          placeholder="Type a dish name (e.g., 'Egusi' or 'Lasagna') or paste a full recipe..." 
+                          rows={6} 
+                          value={recipeText} 
+                          onChange={e => setRecipeText(e.target.value)} 
+                        />
                         <p className="text-xs text-muted-foreground">
                           You can type a food name like "Egusi" or "Jollof Rice" to get ingredients
                         </p>
@@ -406,12 +487,41 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     </TabsContent>
                     
                     <TabsContent value="image" className="mt-0">
-                      {imagePreview ? <div className="relative">
-                          <img src={imagePreview} alt="Recipe" className="w-full max-h-48 object-contain rounded-md border" />
-                          <Button variant="outline" size="icon" className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80" onClick={() => setImagePreview(null)}>
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div> : <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                      {imagePreview ? (
+                        <div className="space-y-4">
+                          <div className="relative">
+                            <img src={imagePreview} alt="Recipe" className="w-full max-h-48 object-contain rounded-md border" />
+                            <Button 
+                              variant="outline" 
+                              size="icon" 
+                              className="absolute top-2 right-2 h-8 w-8 rounded-full bg-background/80" 
+                              onClick={clearImage}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          
+                          <div className="grid gap-2">
+                            <label htmlFor="image-description" className="text-sm font-medium">
+                              Describe what's in the image
+                            </label>
+                            <Textarea 
+                              id="image-description" 
+                              placeholder="E.g., 'Homemade chocolate chip cookies' or 'A page from my grandmother's lasagna recipe'" 
+                              rows={3} 
+                              value={userDescription} 
+                              onChange={e => setUserDescription(e.target.value)} 
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Adding details helps extract ingredients more accurately
+                            </p>
+                          </div>
+                        </div>
+                      ) : (
+                        <div 
+                          className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" 
+                          onClick={() => fileInputRef.current?.click()}
+                        >
                           <div className="flex flex-col items-center gap-2">
                             <Image className="h-8 w-8 text-muted-foreground" />
                             <p className="text-sm font-medium">
@@ -421,17 +531,29 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                               or drag and drop here
                             </p>
                           </div>
-                        </div>}
-                      <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
-                      {!imagePreview && <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full my-[16px]">
+                        </div>
+                      )}
+                      <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*" 
+                        onChange={handleFileUpload} 
+                      />
+                      {!imagePreview && (
+                        <Button variant="outline" onClick={() => fileInputRef.current?.click()} className="w-full my-[16px]">
                           <Upload className="mr-2 h-4 w-4" />
                           Choose File
-                        </Button>}
+                        </Button>
+                      )}
                     </TabsContent>
                     
                     <TabsContent value="camera" className="mt-0">
                       <div className="grid gap-4">
-                        <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={startCapture}>
+                        <div 
+                          className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" 
+                          onClick={startCapture}
+                        >
                           <div className="flex flex-col items-center gap-2">
                             <Camera className="h-8 w-8 text-muted-foreground" />
                             <p className="text-sm font-medium">
@@ -448,19 +570,27 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         </Button>
                       </div>
                     </TabsContent>
-                  </Tabs>}
+                  </Tabs>
+                )}
                 
                 <DialogFooter className="mt-4">
                   <Button variant="outline" onClick={() => setOpen(false)} className="my-[16px]">
                     Cancel
                   </Button>
-                  <Button onClick={handleExtract} disabled={isExtracting || !recipeText && !imagePreview}>
+                  <Button 
+                    onClick={handleExtract} 
+                    disabled={isExtracting || (!recipeText && (!imagePreview || !userDescription))}
+                  >
                     {isExtracting ? "Extracting..." : "Extract Ingredients"}
                   </Button>
                 </DialogFooter>
-              </>}
-          </>}
+              </>
+            )}
+          </>
+        )}
       </DialogContent>
-    </Dialog>;
+    </Dialog>
+  );
 };
+
 export default RecipeExtractor;
