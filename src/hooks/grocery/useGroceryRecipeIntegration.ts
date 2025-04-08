@@ -17,20 +17,37 @@ export const useGroceryRecipeIntegration = (
       return;
     }
     
-    recipe.ingredients.forEach(ingredient => {
-      if (ingredient && typeof ingredient.name === 'string' && ingredient.name.trim()) {
-        addGroceryItem(
-          ingredient.name, 
-          typeof ingredient.quantity === 'string' ? ingredient.quantity : '', 
-          undefined, 
-          recipe.id
-        );
+    // Validate ingredients before adding them
+    const validIngredients = recipe.ingredients.filter(ingredient => {
+      return ingredient && 
+             typeof ingredient === 'object' && 
+             typeof ingredient.name === 'string' && 
+             ingredient.name.trim() !== '';
+    });
+    
+    if (validIngredients.length === 0) {
+      toast({
+        title: "Invalid ingredients format",
+        description: "The recipe doesn't contain properly formatted ingredients.",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    let addedCount = 0;
+    validIngredients.forEach(ingredient => {
+      const name = ingredient.name.trim();
+      const quantity = typeof ingredient.quantity === 'string' ? ingredient.quantity.trim() : '';
+      
+      if (name) {
+        addGroceryItem(name, quantity, undefined, recipe.id);
+        addedCount++;
       }
     });
     
     toast({
       title: "Recipe added to list",
-      description: `${recipe.ingredients.length} ingredients from "${recipe.title}" have been added to your grocery list.`,
+      description: `${addedCount} ingredients from "${recipe.title}" have been added to your grocery list.`,
     });
   };
   

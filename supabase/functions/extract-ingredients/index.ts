@@ -19,8 +19,21 @@ serve(async (req) => {
     const { recipeText } = await req.json();
     
     if (!recipeText || recipeText.trim() === '') {
-      throw new Error('Recipe text is required');
+      return new Response(JSON.stringify({ error: 'Recipe text is required' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
+
+    if (!openAIApiKey) {
+      console.error('OPENAI_API_KEY environment variable not set');
+      return new Response(JSON.stringify({ error: 'OpenAI API key not configured' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    console.log('Sending recipe text to OpenAI:', recipeText.substring(0, 100) + '...');
 
     // Call OpenAI API with improved prompt
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -34,21 +47,27 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert chef tasked with extracting ingredients from recipe text. Extract ONLY the ingredients (not the recipe title, steps, or instructions) and format them as a JSON array of objects with "name" and "quantity" properties. For example: [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]. Only return the JSON array. Do not include any explanatory text.'
+            content: 'You are a professional chef assistant specializing in extracting ingredient lists from recipes. Your task is to carefully analyze recipe text and extract ONLY the ingredients with their quantities. Format the result as a JSON array of objects with "name" and "quantity" properties. For example: [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]. Do not include recipe title, instructions, steps, or any other information. Only return a valid JSON array.'
           },
           { role: 'user', content: recipeText }
         ],
-        temperature: 0.3,
+        temperature: 0.2,
       }),
     });
 
-    const data = await response.json();
-    
     if (!response.ok) {
-      throw new Error(`OpenAI API error: ${data.error?.message || 'Unknown error'}`);
+      const errorData = await response.json();
+      console.error('OpenAI API error:', errorData);
+      return new Response(JSON.stringify({ error: `OpenAI API error: ${errorData.error?.message || response.statusText}` }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
+    const data = await response.json();
+    
     const ingredientsText = data.choices[0].message.content;
+    console.log('OpenAI response:', ingredientsText);
     
     // Parse the ingredients JSON
     let ingredients;
@@ -56,38 +75,36 @@ serve(async (req) => {
       // Try to parse the JSON directly
       ingredients = JSON.parse(ingredientsText);
     } catch (e) {
+      console.error('Failed to parse OpenAI response as JSON:', e);
       // If direct parsing fails, try to extract JSON from text
       const jsonMatch = ingredientsText.match(/\[(.|\n)*\]/);
       if (jsonMatch) {
-        ingredients = JSON.parse(jsonMatch[0]);
-      } else {
-        // If no valid JSON found, try a last resort simple parsing approach
-        const fallbackIngredients = parseIngredientsFallback(recipeText);
-        if (fallbackIngredients.length > 0) {
-          ingredients = fallbackIngredients;
-        } else {
-          throw new Error('Failed to parse ingredients from AI response');
+        try {
+          ingredients = JSON.parse(jsonMatch[0]);
+        } catch (e2) {
+          console.error('Failed to parse JSON from regex match:', e2);
         }
+      }
+      
+      // If no valid JSON found, try a last resort simple parsing approach
+      if (!ingredients) {
+        ingredients = parseIngredientsFallback(recipeText);
       }
     }
 
     // Additional validation to ensure we have an array of objects with name and quantity
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
-      const fallbackIngredients = parseIngredientsFallback(recipeText);
-      if (fallbackIngredients.length > 0) {
-        ingredients = fallbackIngredients;
-      } else {
-        throw new Error('Invalid ingredients format returned');
-      }
+      console.log('Invalid ingredients format or empty array, using fallback parser');
+      ingredients = parseIngredientsFallback(recipeText);
     }
 
     // Make sure each ingredient has the required properties
     ingredients = ingredients.map(item => ({
-      name: typeof item.name === 'string' ? item.name : 'Unknown ingredient',
-      quantity: typeof item.quantity === 'string' ? item.quantity : ''
+      name: typeof item.name === 'string' ? item.name.trim() : 'Unknown ingredient',
+      quantity: typeof item.quantity === 'string' ? item.quantity.trim() : ''
     }));
 
-    console.log('Extracted ingredients:', JSON.stringify(ingredients));
+    console.log('Final extracted ingredients:', JSON.stringify(ingredients));
     
     return new Response(JSON.stringify({ ingredients }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -103,6 +120,7 @@ serve(async (req) => {
 
 // Fallback parsing function if OpenAI fails
 function parseIngredientsFallback(text) {
+  console.log('Using fallback ingredient parser');
   const lines = text.split('\n');
   const ingredients = [];
   
