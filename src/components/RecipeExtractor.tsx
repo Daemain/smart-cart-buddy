@@ -451,7 +451,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                   </Tabs>}
                 
                 <DialogFooter className="mt-4">
-                  <Button variant="outline" onClick={() => setOpen(false)} className="my-0">
+                  <Button variant="outline" onClick={() => setOpen(false)} className="my-[16px]">
                     Cancel
                   </Button>
                   <Button onClick={handleExtract} disabled={isExtracting || !recipeText && !imagePreview}>
