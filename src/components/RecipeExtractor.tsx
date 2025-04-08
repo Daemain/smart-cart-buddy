@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
@@ -202,7 +203,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     if (!recipeText && !imagePreview) {
       toast({
         title: "Missing Information",
-        description: "Please enter a recipe or upload an image to extract ingredients.",
+        description: "Please enter a dish, recipe, or upload an image to extract ingredients.",
         variant: "destructive"
       });
       return;
@@ -215,20 +216,23 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       
       try {
         ingredients = await extractIngredientsWithAI(recipeText);
+        console.log("Extracted ingredients:", ingredients);
       } catch (aiError) {
         console.error('AI extraction failed, falling back to basic parsing:', aiError);
         
-        ingredients = parseRecipe(recipeText);
         toast({
           title: "AI extraction unavailable",
           description: "Using basic extraction instead. Results may be limited.",
         });
+        
+        // Use our fallback parser
+        ingredients = parseRecipe(recipeText);
       }
       
-      if (ingredients.length === 0) {
+      if (!ingredients || ingredients.length === 0) {
         toast({
           title: "No ingredients found",
-          description: "We couldn't extract any ingredients from the text. Please try reformatting or use a different recipe.",
+          description: "We couldn't extract any ingredients. Please try being more specific or use a different recipe.",
           variant: "destructive"
         });
       } else {
@@ -239,30 +243,39 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           
           if (freeUsesRemaining === 1) {
             toast({
-              title: "Recipe extracted",
+              title: "Ingredients extracted",
               description: `Found ${ingredients.length} ingredients. This was your last free extraction.`
             });
           } else {
             toast({
-              title: "Recipe extracted",
+              title: "Ingredients extracted",
               description: `Found ${ingredients.length} ingredients. You have ${freeUsesRemaining - 1} free extractions left.`
             });
           }
         } else {
           toast({
-            title: "Recipe extracted",
-            description: `Found ${ingredients.length} ingredients in your recipe.`
+            title: "Ingredients extracted",
+            description: `Found ${ingredients.length} ingredients for your dish.`
           });
         }
         
         setExtractedIngredients(ingredients);
+        
+        // Set a default recipe name if it's a simple food item
+        let defaultName = recipeText.trim();
+        if (defaultName.split(' ').length <= 3) {
+          form.setValue('recipeName', defaultName.charAt(0).toUpperCase() + defaultName.slice(1));
+        } else {
+          form.setValue('recipeName', 'My Recipe');
+        }
+        
         setShowNameForm(true);
       }
     } catch (error) {
       console.error('Extraction error:', error);
       toast({
         title: "Extraction failed",
-        description: "There was an error extracting the recipe. Please try again.",
+        description: "There was an error extracting the ingredients. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -279,6 +292,14 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       name: string;
       quantity: string;
     }[] = [];
+    
+    // If it's just a single food item with no line breaks, return it as an ingredient
+    if (lines.length === 1 && text.trim().length > 0) {
+      return [{
+        name: text.trim(),
+        quantity: '1 serving'
+      }];
+    }
     
     lines.forEach(line => {
       line = line.trim();
@@ -374,11 +395,11 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         ) : (
           <>
             <DialogHeader className="my-[8px]">
-              <DialogTitle className="text-base">Extract Grocery List from Recipe</DialogTitle>
+              <DialogTitle className="text-base">Extract Ingredients for Any Dish</DialogTitle>
               <DialogDescription className="font-light text-sm">
                 {!isPremium && usageCount >= 2 
                   ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." 
-                  : "Upload a recipe image, take a photo, or paste text to extract ingredients"}
+                  : "Enter a dish name, paste a recipe, or upload an image to get ingredients"}
               </DialogDescription>
             </DialogHeader>
             
@@ -426,15 +447,18 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     <TabsContent value="text" className="mt-0">
                       <div className="grid gap-2">
                         <label htmlFor="recipe-text" className="text-sm font-medium">
-                          Paste your recipe
+                          Enter a dish or paste a recipe
                         </label>
                         <Textarea 
                           id="recipe-text" 
-                          placeholder="Paste your recipe ingredients and instructions here..." 
+                          placeholder="Type a dish name (e.g., 'Egusi' or 'Lasagna') or paste a full recipe..." 
                           rows={6} 
                           value={recipeText} 
                           onChange={e => setRecipeText(e.target.value)} 
                         />
+                        <p className="text-xs text-muted-foreground">
+                          You can type a food name like "Egusi" or "Jollof Rice" to get ingredients
+                        </p>
                       </div>
                     </TabsContent>
                     

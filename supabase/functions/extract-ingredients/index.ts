@@ -33,9 +33,9 @@ serve(async (req) => {
       });
     }
 
-    console.log('Sending recipe text to OpenAI:', recipeText.substring(0, 100) + '...');
+    console.log('Processing food or recipe:', recipeText.substring(0, 100) + '...');
 
-    // Call OpenAI API with improved prompt
+    // Call OpenAI API with improved prompt that handles both recipe text and food names
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -47,7 +47,12 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: 'You are a professional chef assistant specializing in extracting ingredient lists from recipes. Your task is to carefully analyze recipe text and extract ONLY the ingredients with their quantities. Format the result as a JSON array of objects with "name" and "quantity" properties. For example: [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]. Do not include recipe title, instructions, steps, or any other information. Only return a valid JSON array.'
+            content: 'You are a professional chef assistant. Your task is to analyze the input and respond accordingly:\n\n' +
+                     '1. If the input is a recipe (containing multiple ingredients and instructions), extract ONLY the ingredients with their quantities.\n\n' +
+                     '2. If the input is a dish or food name (like "Egusi", "Lasagna", "Apple Pie"), list the typical ingredients needed to make this dish with their approximate quantities.\n\n' +
+                     'Format your response as a JSON array of objects with "name" and "quantity" properties. For example:\n' +
+                     '[{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]\n\n' +
+                     'Make sure to generate a comprehensive list of ingredients for any food name provided. Do not include recipe instructions, steps, or any other information. Only return a valid JSON array.'
           },
           { role: 'user', content: recipeText }
         ],
@@ -88,14 +93,14 @@ serve(async (req) => {
       
       // If no valid JSON found, try a last resort simple parsing approach
       if (!ingredients) {
-        ingredients = parseIngredientsFallback(recipeText);
+        ingredients = generateDefaultIngredients(recipeText);
       }
     }
 
     // Additional validation to ensure we have an array of objects with name and quantity
     if (!Array.isArray(ingredients) || ingredients.length === 0) {
-      console.log('Invalid ingredients format or empty array, using fallback parser');
-      ingredients = parseIngredientsFallback(recipeText);
+      console.log('Invalid ingredients format or empty array, using default generator');
+      ingredients = generateDefaultIngredients(recipeText);
     }
 
     // Make sure each ingredient has the required properties
@@ -118,66 +123,63 @@ serve(async (req) => {
   }
 });
 
-// Fallback parsing function if OpenAI fails
-function parseIngredientsFallback(text) {
-  console.log('Using fallback ingredient parser');
-  const lines = text.split('\n');
-  const ingredients = [];
+// Generate default ingredients for a food item if OpenAI fails
+function generateDefaultIngredients(foodName) {
+  console.log('Generating default ingredients for:', foodName);
   
-  const measurementUnits = [
-    'cup', 'cups', 'tbsp', 'tablespoon', 'tablespoons', 
-    'tsp', 'teaspoon', 'teaspoons', 'oz', 'ounce', 'ounces',
-    'pound', 'pounds', 'lb', 'lbs', 'g', 'gram', 'grams',
-    'kg', 'kilogram', 'kilograms', 'ml', 'milliliter', 'milliliters',
-    'l', 'liter', 'liters', 'pinch', 'dash', 'to taste'
-  ];
+  // Some common defaults based on food types
+  const foodName_lower = foodName.toLowerCase().trim();
   
-  for (const line of lines) {
-    const trimmedLine = line.trim();
-    if (!trimmedLine || trimmedLine.startsWith('Step') || trimmedLine.startsWith('Instruction')) continue;
-    
-    // Skip lines that look like headers, titles or instructions
-    if (trimmedLine.endsWith(':') || 
-        /^(Step|Instruction|Direction|Method|Preparation|Cook|Bake|Serves|Yield)s?\b/i.test(trimmedLine)) {
-      continue;
-    }
-    
-    // Check if line contains measurement units or starts with a number
-    const hasUnit = measurementUnits.some(unit => trimmedLine.toLowerCase().includes(unit));
-    const startsWithNumber = /^\d/.test(trimmedLine);
-    
-    if (hasUnit || startsWithNumber) {
-      // Try to separate quantity from name
-      const match = trimmedLine.match(/^([\d\/\.\s]+)?\s*(cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|oz|ounce|ounces|pound|pounds|lb|lbs|g|gram|grams|kg|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters|pinch|dash|to taste)s?\s+(?:of\s+)?(.+)$/i);
-      
-      if (match) {
-        const quantity = `${match[1] || ''} ${match[2] || ''}`.trim();
-        const name = match[3].trim();
-        ingredients.push({ name, quantity });
-      } else {
-        // If no specific match pattern, try to split on first space after a number
-        const numberMatch = trimmedLine.match(/^([\d\/\.\s]+(?:\s*[-–—]\s*[\d\/\.\s]+)?)\s+(.+)$/);
-        if (numberMatch) {
-          ingredients.push({
-            name: numberMatch[2].trim(),
-            quantity: numberMatch[1].trim()
-          });
-        } else {
-          // Last resort: treat the whole line as an ingredient name
-          ingredients.push({
-            name: trimmedLine,
-            quantity: ''
-          });
-        }
-      }
-    } else if (trimmedLine.length > 2) {
-      // If line doesn't have units but looks like an ingredient
-      ingredients.push({
-        name: trimmedLine,
-        quantity: ''
-      });
+  // Simple dictionary of common foods and their ingredients
+  const commonFoods = {
+    'egusi': [
+      {name: 'Egusi seeds (melon seeds)', quantity: '2 cups'},
+      {name: 'Palm oil', quantity: '1/2 cup'},
+      {name: 'Spinach or bitter leaf', quantity: '2 cups, chopped'},
+      {name: 'Onions', quantity: '1 medium, chopped'},
+      {name: 'Meat or fish', quantity: '1 lb'},
+      {name: 'Pepper', quantity: 'to taste'},
+      {name: 'Salt', quantity: 'to taste'},
+      {name: 'Stock cubes', quantity: '2'}
+    ],
+    'jollof rice': [
+      {name: 'Rice', quantity: '2 cups'},
+      {name: 'Tomatoes', quantity: '4 medium'},
+      {name: 'Onions', quantity: '2 medium'},
+      {name: 'Bell peppers', quantity: '1'},
+      {name: 'Vegetable oil', quantity: '1/4 cup'},
+      {name: 'Curry powder', quantity: '1 tbsp'},
+      {name: 'Thyme', quantity: '1 tsp'},
+      {name: 'Salt', quantity: 'to taste'},
+      {name: 'Stock cubes', quantity: '2'}
+    ],
+    'lasagna': [
+      {name: 'Lasagna noodles', quantity: '12 sheets'},
+      {name: 'Ground beef', quantity: '1 lb'},
+      {name: 'Onion', quantity: '1 medium, chopped'},
+      {name: 'Garlic', quantity: '2 cloves, minced'},
+      {name: 'Tomato sauce', quantity: '24 oz'},
+      {name: 'Ricotta cheese', quantity: '15 oz'},
+      {name: 'Mozzarella cheese', quantity: '16 oz, shredded'},
+      {name: 'Parmesan cheese', quantity: '1/2 cup, grated'},
+      {name: 'Egg', quantity: '1'},
+      {name: 'Italian seasoning', quantity: '2 tsp'},
+      {name: 'Salt', quantity: 'to taste'},
+      {name: 'Black pepper', quantity: 'to taste'}
+    ]
+  };
+  
+  // Check if we have default ingredients for this food
+  for (const [food, ingredients] of Object.entries(commonFoods)) {
+    if (foodName_lower.includes(food)) {
+      return ingredients;
     }
   }
   
-  return ingredients;
+  // Generic return for unknown food
+  return [
+    {name: foodName, quantity: 'As needed'},
+    {name: 'Salt', quantity: 'To taste'},
+    {name: 'Pepper', quantity: 'To taste'}
+  ];
 }
