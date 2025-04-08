@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Recipe } from '@/types/grocery';
 import { ChefHat, ChevronDown, ChevronUp, CheckCircle, EyeIcon, EyeOffIcon, Trash2, Plus } from 'lucide-react';
@@ -11,6 +12,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { Checkbox } from '@/components/ui/checkbox';
 import { cn } from '@/lib/utils';
 import { toast } from '@/components/ui/use-toast';
+import { Input } from '@/components/ui/input';
 
 interface RecipeFolderProps {
   recipes: Recipe[];
@@ -31,6 +33,8 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
   const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
   const [completedRecipes, setCompletedRecipes] = useState<Record<string, boolean>>({});
+  const [newIngredients, setNewIngredients] = useState<Record<string, {name: string; quantity: string}>>({});
+  const [showAddIngredientForm, setShowAddIngredientForm] = useState<Record<string, boolean>>({});
 
   if (recipes.length === 0 || (activeCategory !== 'all' && activeCategory !== 'completed')) {
     return null;
@@ -118,6 +122,85 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
         description: `Ingredients from "${recipe.title}" have been added to your grocery list.`,
       });
     }
+  };
+
+  const toggleAddIngredientForm = (recipeId: string) => {
+    setShowAddIngredientForm(prev => ({
+      ...prev,
+      [recipeId]: !prev[recipeId]
+    }));
+    
+    // Initialize the new ingredient state if it doesn't exist
+    if (!newIngredients[recipeId]) {
+      setNewIngredients(prev => ({
+        ...prev,
+        [recipeId]: {name: '', quantity: ''}
+      }));
+    }
+  };
+
+  const handleNewIngredientChange = (recipeId: string, field: 'name' | 'quantity', value: string) => {
+    setNewIngredients(prev => ({
+      ...prev,
+      [recipeId]: {
+        ...prev[recipeId],
+        [field]: value
+      }
+    }));
+  };
+
+  const addNewIngredient = (recipe: Recipe, recipeId: string) => {
+    const ingredientData = newIngredients[recipeId];
+    
+    if (!ingredientData || !ingredientData.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Ingredient name is required",
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    // Create a new recipe with the added ingredient
+    const updatedRecipe = {
+      ...recipe,
+      ingredients: [
+        ...recipe.ingredients,
+        {
+          name: ingredientData.name.trim(),
+          quantity: ingredientData.quantity.trim()
+        }
+      ]
+    };
+    
+    // Call onAddToList with only the new ingredient
+    if (onAddToList) {
+      const singleIngredientRecipe = {
+        ...recipe,
+        ingredients: [{
+          name: ingredientData.name.trim(),
+          quantity: ingredientData.quantity.trim()
+        }]
+      };
+      onAddToList(singleIngredientRecipe);
+    }
+    
+    // Reset the form
+    setNewIngredients(prev => ({
+      ...prev,
+      [recipeId]: {name: '', quantity: ''}
+    }));
+    
+    // Hide the form
+    setShowAddIngredientForm(prev => ({
+      ...prev,
+      [recipeId]: false
+    }));
+    
+    toast({
+      title: "Ingredient added",
+      description: `"${ingredientData.name}" has been added to your grocery list.`,
+    });
   };
 
   return (
@@ -230,7 +313,58 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
                           </li>
                         ))}
                       </ul>
+                      
+                      {/* Add new ingredient form */}
+                      {showAddIngredientForm[recipe.id] && (
+                        <div className="mt-4 mb-4 bg-muted/10 p-3 rounded-md border border-muted">
+                          <h5 className="text-xs font-medium mb-2">Add Custom Ingredient</h5>
+                          <div className="flex flex-col gap-2">
+                            <Input
+                              placeholder="Ingredient name"
+                              value={newIngredients[recipe.id]?.name || ''}
+                              onChange={(e) => handleNewIngredientChange(recipe.id, 'name', e.target.value)}
+                              className="text-sm h-8"
+                            />
+                            <Input
+                              placeholder="Quantity (optional)"
+                              value={newIngredients[recipe.id]?.quantity || ''}
+                              onChange={(e) => handleNewIngredientChange(recipe.id, 'quantity', e.target.value)}
+                              className="text-sm h-8"
+                            />
+                            <div className="flex gap-2 mt-1">
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                variant="default"
+                                className="text-xs h-8"
+                                onClick={() => addNewIngredient(recipe, recipe.id)}
+                              >
+                                Add
+                              </Button>
+                              <Button 
+                                type="button" 
+                                size="sm" 
+                                variant="outline"
+                                className="text-xs h-8"
+                                onClick={() => toggleAddIngredientForm(recipe.id)}
+                              >
+                                Cancel
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="mt-5 flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 bg-primary/5 hover:bg-primary/10 text-primary"
+                          onClick={() => toggleAddIngredientForm(recipe.id)}
+                        >
+                          <Plus className="h-4 w-4 mr-1.5" />
+                          <span className="text-xs">Add ingredient</span>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
