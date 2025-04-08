@@ -4,7 +4,7 @@ import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ChefHat, Upload, X, Camera, Image, Sparkles } from 'lucide-react';
+import { ChefHat, Upload, X, Camera, Image, Sparkles, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 import { toast } from '@/components/ui/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +13,7 @@ import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { supabase } from '@/integrations/supabase/client';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface RecipeExtractorProps {
   onExtractComplete: (ingredients: {
@@ -47,6 +48,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   }[]>([]);
   const [showNameForm, setShowNameForm] = useState(false);
   const [showDescriptionInput, setShowDescriptionInput] = useState(false);
+  const [extractionError, setExtractionError] = useState<string | null>(null);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -80,13 +82,14 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       
       setShowDescriptionInput(true);
       setActiveTab('image');
+      setExtractionError(null);
       
       return true;
     } catch (error) {
       console.error("Error processing image:", error);
       toast({
         title: "Image processing failed",
-        description: "We couldn't process this image. Please try again or enter the recipe manually.",
+        description: "We couldn't process this image. Please try again with a different image.",
         variant: "destructive"
       });
       return false;
@@ -197,6 +200,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         throw new Error(`Edge function error: ${error.message}`);
       }
       
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
       if (!data.ingredients || !Array.isArray(data.ingredients)) {
         throw new Error('Invalid response from AI service');
       }
@@ -243,6 +250,8 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
     
     setIsExtracting(true);
+    setExtractionError(null);
+    
     try {
       let ingredients;
       
@@ -252,55 +261,26 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           ingredients = await extractIngredientsWithAI('', imageBase64!, userDescription);
           console.log("Extracted ingredients from image:", ingredients);
         } catch (aiError) {
-          console.error('Image AI extraction failed, checking fallback options:', aiError);
-          
-          // Try text-based extraction if we have a description or text
-          if (hasDescription) {
-            try {
-              ingredients = await extractIngredientsWithAI(userDescription);
-              console.log("Fallback to description extraction successful:", ingredients);
-            } catch (textError) {
-              console.error('Description fallback also failed:', textError);
-              ingredients = parseRecipe(userDescription);
-              console.log("Using basic parsing on description:", ingredients);
-            }
-          } else if (hasText) {
-            try {
-              ingredients = await extractIngredientsWithAI(recipeText);
-              console.log("Fallback to text extraction successful:", ingredients);
-            } catch (textError) {
-              console.error('Text fallback also failed:', textError);
-              ingredients = parseRecipe(recipeText);
-              console.log("Using basic parsing on text:", ingredients);
-            }
-          } else {
-            toast({
-              title: "Extraction failed",
-              description: "Please try adding a description or entering recipe text.",
-              variant: "destructive"
-            });
-            setIsExtracting(false);
-            return;
-          }
+          console.error('Image AI extraction failed:', aiError);
+          setExtractionError(aiError.message);
+          setIsExtracting(false);
+          return;
         }
       } else if (hasText) {
-        // Text-based extraction as fallback
+        // Text-based extraction
         try {
           ingredients = await extractIngredientsWithAI(recipeText);
           console.log("Extracted ingredients from text:", ingredients);
         } catch (aiError) {
           console.error('Text AI extraction failed:', aiError);
-          ingredients = parseRecipe(recipeText);
-          console.log("Using basic parsing on text:", ingredients);
+          setExtractionError(aiError.message);
+          setIsExtracting(false);
+          return;
         }
       }
       
       if (!ingredients || ingredients.length === 0) {
-        toast({
-          title: "No ingredients found",
-          description: "We couldn't extract any ingredients. Please try a clearer image or more specific description.",
-          variant: "destructive"
-        });
+        setExtractionError("No ingredients could be identified. Please try a clearer image or more specific description.");
         setIsExtracting(false);
         return;
       }
@@ -349,52 +329,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       setShowNameForm(true);
     } catch (error) {
       console.error('Extraction error:', error);
-      toast({
-        title: "Extraction failed",
-        description: "There was an error extracting the ingredients. Please try again.",
-        variant: "destructive"
-      });
+      setExtractionError(error instanceof Error ? error.message : "Unknown error occurred");
     } finally {
       setIsExtracting(false);
     }
-  };
-
-  const parseRecipe = (text: string): {
-    name: string;
-    quantity: string;
-  }[] => {
-    const lines = text.split('\n');
-    const ingredients: {
-      name: string;
-      quantity: string;
-    }[] = [];
-    if (lines.length === 1 && text.trim().length > 0) {
-      return [{
-        name: text.trim(),
-        quantity: '1 serving'
-      }];
-    }
-    lines.forEach(line => {
-      line = line.trim();
-      if (!line) return;
-      const quantityMatch = line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+of\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s*(cup|tbsp|tsp|tablespoon|teaspoon|oz|ounce|pound|lb|g|kg|ml|l)s?\s+(.+)$/) || line.match(/^([\d\/\.\s]+)?\s+(.+)$/);
-      if (quantityMatch) {
-        const quantity = quantityMatch[1] ? quantityMatch[1].trim() : '';
-        const unit = quantityMatch[2] ? quantityMatch[2].trim() : '';
-        const name = quantityMatch[3] ? quantityMatch[3].trim() : quantityMatch[2];
-        const quantityText = [quantity, unit].filter(Boolean).join(' ');
-        ingredients.push({
-          name: name,
-          quantity: quantityText || '1'
-        });
-      } else if (line.length > 2 && !line.startsWith('Step')) {
-        ingredients.push({
-          name: line,
-          quantity: ''
-        });
-      }
-    });
-    return ingredients;
   };
 
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
@@ -406,6 +344,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setUserDescription('');
     setShowNameForm(false);
     setExtractedIngredients([]);
+    setExtractionError(null);
     form.reset();
   };
 
@@ -414,6 +353,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setImageBase64(null);
     setUserDescription('');
     setShowDescriptionInput(false);
+    setExtractionError(null);
   };
 
   return (
@@ -470,7 +410,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             <DialogHeader className="my-[8px]">
               <DialogTitle className="text-base">Extract Ingredients from Food Images</DialogTitle>
               <DialogDescription className="font-light text-sm">
-                {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Take a photo or upload an image of food to extract ingredients"}
+                {!isPremium && usageCount >= 2 ? "You've used your free recipe extractions. Upgrade to premium for unlimited use." : "Take a clear photo of your food to extract ingredients"}
               </DialogDescription>
             </DialogHeader>
             
@@ -518,7 +458,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     
                     <div className="grid gap-2">
                       <label htmlFor="image-description" className="text-sm font-medium">
-                        What's in the image? (optional but helpful)
+                        What's in the image? (helpful but optional)
                       </label>
                       <Textarea 
                         id="image-description" 
@@ -529,9 +469,19 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                         ref={descriptionInputRef}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Just a simple hint to help identify what's in the image
+                        A simple hint can help identify what's in the image
                       </p>
                     </div>
+                    
+                    {extractionError && (
+                      <Alert variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertTitle>Error</AlertTitle>
+                        <AlertDescription>
+                          {extractionError}
+                        </AlertDescription>
+                      </Alert>
+                    )}
                     
                     <div className="flex justify-end mt-4">
                       <Button onClick={handleExtract} disabled={isExtracting}>
@@ -549,14 +499,22 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                     
                     <TabsContent value="camera" className="mt-0">
                       <div className="grid gap-4">
+                        <Alert>
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Important</AlertTitle>
+                          <AlertDescription>
+                            Take a clear, well-lit photo focusing on the food for best results
+                          </AlertDescription>
+                        </Alert>
+                        
                         <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={startCapture}>
                           <div className="flex flex-col items-center gap-2">
                             <Camera className="h-8 w-8 text-muted-foreground" />
                             <p className="text-sm font-medium">
-                              Take a photo of your food or recipe
+                              Take a photo of your food
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Snap a clear picture for best results
+                              We'll analyze what's visible in the image
                             </p>
                           </div>
                         </div>
@@ -579,7 +537,7 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           
                           <div className="grid gap-2">
                             <label htmlFor="image-description" className="text-sm font-medium">
-                              What's in the image? (optional but helpful)
+                              What's in the image? (helpful but optional)
                             </label>
                             <Textarea 
                               id="image-description" 
@@ -589,9 +547,19 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                               onChange={e => setUserDescription(e.target.value)}
                             />
                             <p className="text-xs text-muted-foreground">
-                              Just a simple hint to help identify what's in the image
+                              A simple hint can help identify what's in the image
                             </p>
                           </div>
+                          
+                          {extractionError && (
+                            <Alert variant="destructive">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertTitle>Error</AlertTitle>
+                              <AlertDescription>
+                                {extractionError}
+                              </AlertDescription>
+                            </Alert>
+                          )}
                           
                           <div className="flex justify-end mt-4">
                             <Button onClick={handleExtract} disabled={isExtracting}>
@@ -600,17 +568,27 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           </div>
                         </div>
                       ) : (
-                        <div className="border-2 border-dashed rounded-md p-8 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
-                          <div className="flex flex-col items-center gap-2">
-                            <Image className="h-8 w-8 text-muted-foreground" />
-                            <p className="text-sm font-medium">
-                              Click to upload a food image
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              or drag and drop here
-                            </p>
+                        <>
+                          <Alert>
+                            <AlertCircle className="h-4 w-4" />
+                            <AlertTitle>Important</AlertTitle>
+                            <AlertDescription>
+                              Use clear, well-lit photos showing the food ingredients for best results
+                            </AlertDescription>
+                          </Alert>
+                          
+                          <div className="border-2 border-dashed rounded-md p-8 mt-4 text-center hover:border-primary/50 transition-colors cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+                            <div className="flex flex-col items-center gap-2">
+                              <Image className="h-8 w-8 text-muted-foreground" />
+                              <p className="text-sm font-medium">
+                                Click to upload a food image
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                or drag and drop here
+                              </p>
+                            </div>
                           </div>
-                        </div>
+                        </>
                       )}
                       <input type="file" ref={fileInputRef} className="hidden" accept="image/*" onChange={handleFileUpload} />
                       {!imagePreview && (
@@ -631,6 +609,16 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
                           You can type a food name like "Egusi" or "Jollof Rice" to get ingredients
                         </p>
                       </div>
+                      
+                      {extractionError && (
+                        <Alert variant="destructive" className="mt-4">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertTitle>Error</AlertTitle>
+                          <AlertDescription>
+                            {extractionError}
+                          </AlertDescription>
+                        </Alert>
+                      )}
                       
                       <div className="flex justify-end mt-4">
                         <Button onClick={handleExtract} disabled={isExtracting || !recipeText.trim()}>

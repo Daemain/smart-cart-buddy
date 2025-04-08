@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -40,27 +39,15 @@ serve(async (req) => {
     if (imageBase64) {
       console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
       try {
-        // Enhanced image extraction with improved system prompt
+        // Enhanced image extraction with more specific and detailed prompt
         ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
         console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
         console.error('OpenAI image extraction failed:', aiError);
-        // Fallback only if we have a description
-        if (userDescription) {
-          try {
-            console.log('Attempting fallback to text extraction using description');
-            ingredients = await extractIngredientsWithOpenAI(userDescription);
-            console.log('Fallback to text extraction successful:', JSON.stringify(ingredients));
-          } catch (textError) {
-            console.error('Text fallback also failed:', textError);
-            ingredients = generateDefaultIngredients(userDescription);
-            console.log('Using fallback ingredients:', JSON.stringify(ingredients));
-          }
-        } else {
-          console.log('No description provided for fallback, using generic fallback');
-          ingredients = generateDefaultIngredients('Food dish');
-          console.log('Using generic fallback ingredients:', JSON.stringify(ingredients));
-        }
+        return new Response(JSON.stringify({ error: 'Failed to analyze image. The OpenAI vision API might be experiencing issues.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
     }
     // Use text-based extraction as backup only
@@ -71,9 +58,18 @@ serve(async (req) => {
         console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
         console.error('OpenAI text extraction failed:', aiError);
-        ingredients = generateDefaultIngredients(recipeText);
-        console.log('Using fallback ingredients:', JSON.stringify(ingredients));
+        return new Response(JSON.stringify({ error: 'Failed to analyze recipe text. Try with an image instead.' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
       }
+    }
+    
+    if (!ingredients || ingredients.length === 0) {
+      return new Response(JSON.stringify({ error: 'No ingredients could be identified. Try a clearer image or more detailed description.' }), {
+        status: 422,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
     
     return new Response(JSON.stringify({ ingredients }), {
@@ -89,6 +85,8 @@ serve(async (req) => {
 });
 
 async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescription) {
+  console.log('Sending image to OpenAI vision API with description:', userDescription.substring(0, 50));
+  
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -97,35 +95,39 @@ async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescriptio
     },
     body: JSON.stringify({
       model: 'gpt-4o',
+      max_tokens: 1500,
       messages: [
         { 
           role: 'system', 
-          content: `You are an expert food analyzer specializing in ingredient identification from images. Your task is to:
+          content: `You are a professional food scientist who specializes in identifying ingredients from food images with extreme precision.
 
-1. Look ONLY at what is visibly present in the image and identify the actual ingredients you can see
-2. DO NOT return generic recipe ingredients - only report what you actually observe
-3. Do not make assumptions about standard recipes - analyze the specific image content
-4. Distinguish between different varieties of similar ingredients (e.g., types of rice, specific vegetables)
-5. Describe ingredients with appropriate specificity (e.g., "jasmine rice" not just "rice" if visible)
-6. Include visible quantities where possible (count, approximate volume or weight)
-7. Format your response as a JSON array of objects with "name" and "quantity" properties
+CRITICAL INSTRUCTIONS:
+1. ONLY identify ingredients that are PHYSICALLY VISIBLE in the image
+2. DO NOT provide a generic recipe for the dish - this is NOT what you are being asked to do
+3. DO NOT make assumptions about invisible ingredients
+4. BE SPECIFIC about ingredient varieties (e.g., "jasmine rice" not just "rice" if you can tell)
+5. Include colors, textures, and specific varieties when visible
+6. If you can see quantities, mention them
+7. If you cannot identify something with confidence, say "unidentified [color/texture] ingredient"
+8. DO NOT try to guess the name of the dish and then list its typical ingredients
+9. FOCUS EXCLUSIVELY on what is physically visible in this specific image
 
-IMPORTANT:
-- Focus strictly on what's visible - NOT a generic recipe
-- Never return a generic ingredient list for a dish - analyze what's specifically present
-- If you can't identify specific ingredients clearly, say so rather than guessing
-- Consider the user description only as context, but prioritize what you can actually see
-- Include EXACTLY what's in the image, not a standard recipe
-- The user may have provided a description, but this is SUPPLEMENTARY information. Your primary task is to analyze the image
+FORMAT YOUR RESPONSE AS A JSON ARRAY OF OBJECTS with "name" and "quantity" properties. 
+Do not include ANY text outside of the JSON structure.
+Example: [{"name": "diced tomatoes", "quantity": "about 1 cup"}, {"name": "green bell pepper slices", "quantity": "5-6 slices"}]
 
-For example, if shown rice but told it's "jollof rice" in the description, only include ingredients you can actually see (like rice, visible spices, visible vegetables), not the entire jollof rice recipe.`
+IMPORTANT: If the image is unclear or you cannot identify specific ingredients clearly, DO NOT resort to listing generic recipe ingredients - respond honestly with the few ingredients you can actually see or state that you cannot identify ingredients clearly.`
         },
         { 
           role: 'user', 
           content: [
             { 
               type: 'text', 
-              text: userDescription ? `Here's a food image. Context: ${userDescription}. Please identify ALL the ingredients you can actually SEE in this specific image, not a generic recipe.` : "Here's a food image. Please identify only the ingredients you can actually see in this image."
+              text: userDescription ? 
+                 `Analyze this food image and list ONLY the ingredients you can physically see in the image. 
+                  For context only (DO NOT use this to guess invisible ingredients): The food might be ${userDescription}.
+                  Again, ONLY list ingredients you can actually SEE in the image, not a generic recipe.` 
+                : "Analyze this food image and list ONLY the ingredients you can physically see in the image. DO NOT provide a generic recipe."
             },
             {
               type: 'image_url',
@@ -142,6 +144,7 @@ For example, if shown rice but told it's "jollof rice" in the description, only 
 
   if (!response.ok) {
     const errorData = await response.json();
+    console.error('OpenAI API error response:', errorData);
     throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
   }
 
@@ -246,128 +249,6 @@ ONLY return valid JSON without any additional text.`
 }
 
 function generateDefaultIngredients(foodName) {
-  console.log('Generating default ingredients for:', foodName);
-  
-  const foodName_lower = foodName.toLowerCase().trim();
-  
-  // Expanded dictionary of common foods and their ingredients
-  const commonFoods = {
-    'egusi': [
-      {name: 'Egusi seeds (melon seeds)', quantity: '2 cups'},
-      {name: 'Palm oil', quantity: '1/2 cup'},
-      {name: 'Spinach or bitter leaf', quantity: '2 cups, chopped'},
-      {name: 'Onions', quantity: '1 medium, chopped'},
-      {name: 'Tomatoes', quantity: '3 medium, chopped'},
-      {name: 'Peppers', quantity: '2, chopped'},
-      {name: 'Meat or fish', quantity: '1 lb'},
-      {name: 'Stock cubes', quantity: '2'},
-      {name: 'Salt', quantity: 'to taste'},
-      {name: 'Crayfish', quantity: '2 tablespoons, ground'},
-      {name: 'Garlic', quantity: '2 cloves, minced'},
-      {name: 'Ginger', quantity: '1 tablespoon, minced'}
-    ],
-    'jollof rice': [
-      {name: 'Long grain rice', quantity: '2 cups'},
-      {name: 'Tomatoes', quantity: '6 medium'},
-      {name: 'Red bell peppers', quantity: '2 medium'},
-      {name: 'Scotch bonnet/habanero peppers', quantity: '1-2 (adjust for heat)'},
-      {name: 'Onions', quantity: '2 large'},
-      {name: 'Vegetable oil', quantity: '1/4 cup'},
-      {name: 'Tomato paste', quantity: '2 tablespoons'},
-      {name: 'Curry powder', quantity: '1 tablespoon'},
-      {name: 'Dried thyme', quantity: '1 teaspoon'},
-      {name: 'Bay leaves', quantity: '2'},
-      {name: 'Garlic', quantity: '3 cloves, minced'},
-      {name: 'Ginger', quantity: '1 inch piece, grated'},
-      {name: 'Chicken or vegetable stock', quantity: '3 cups'},
-      {name: 'Salt', quantity: 'to taste'},
-      {name: 'Stock cubes', quantity: '2'}
-    ],
-    'lasagna': [
-      {name: 'Lasagna noodles', quantity: '12 sheets'},
-      {name: 'Ground beef', quantity: '1 lb'},
-      {name: 'Italian sausage', quantity: '1/2 lb'},
-      {name: 'Onion', quantity: '1 large, chopped'},
-      {name: 'Garlic', quantity: '3 cloves, minced'},
-      {name: 'Tomato sauce', quantity: '24 oz'},
-      {name: 'Tomato paste', quantity: '2 tablespoons'},
-      {name: 'Crushed tomatoes', quantity: '14 oz can'},
-      {name: 'Ricotta cheese', quantity: '15 oz'},
-      {name: 'Mozzarella cheese', quantity: '16 oz, shredded'},
-      {name: 'Parmesan cheese', quantity: '1/2 cup, grated'},
-      {name: 'Eggs', quantity: '1'},
-      {name: 'Fresh basil', quantity: '1/4 cup, chopped'},
-      {name: 'Dried oregano', quantity: '1 tablespoon'},
-      {name: 'Italian seasoning', quantity: '1 tablespoon'},
-      {name: 'Salt', quantity: 'to taste'},
-      {name: 'Black pepper', quantity: 'to taste'},
-      {name: 'Olive oil', quantity: '2 tablespoons'}
-    ],
-    'pancakes': [
-      {name: 'All-purpose flour', quantity: '1 1/2 cups'},
-      {name: 'Baking powder', quantity: '3 1/2 teaspoons'},
-      {name: 'Salt', quantity: '1 teaspoon'},
-      {name: 'Sugar', quantity: '1 tablespoon'},
-      {name: 'Milk', quantity: '1 1/4 cups'},
-      {name: 'Egg', quantity: '1'},
-      {name: 'Butter', quantity: '3 tablespoons, melted'},
-      {name: 'Vanilla extract', quantity: '1 teaspoon'}
-    ],
-    'fried rice': [
-      {name: 'Cooked rice (preferably day-old)', quantity: '3 cups'},
-      {name: 'Vegetable oil', quantity: '3 tablespoons'},
-      {name: 'Eggs', quantity: '2, beaten'},
-      {name: 'Carrots', quantity: '1/2 cup, diced'},
-      {name: 'Peas', quantity: '1/2 cup'},
-      {name: 'Onion', quantity: '1 small, chopped'},
-      {name: 'Garlic', quantity: '2 cloves, minced'},
-      {name: 'Green onions', quantity: '3, chopped'},
-      {name: 'Soy sauce', quantity: '3 tablespoons'},
-      {name: 'Sesame oil', quantity: '1 teaspoon'},
-      {name: 'Salt', quantity: 'to taste'},
-      {name: 'Black pepper', quantity: 'to taste'},
-      {name: 'Protein (chicken, shrimp, etc.)', quantity: '1 cup, cooked and diced'}
-    ],
-    'spaghetti carbonara': [
-      {name: 'Spaghetti', quantity: '1 lb'},
-      {name: 'Pancetta or bacon', quantity: '8 oz, diced'},
-      {name: 'Eggs', quantity: '4 large'},
-      {name: 'Parmesan cheese', quantity: '1 cup, grated'},
-      {name: 'Pecorino Romano cheese', quantity: '1/2 cup, grated'},
-      {name: 'Black pepper', quantity: '1 teaspoon, freshly ground'},
-      {name: 'Garlic', quantity: '2 cloves, minced (optional)'},
-      {name: 'Salt', quantity: 'to taste'},
-      {name: 'Olive oil', quantity: '1 tablespoon'}
-    ],
-    'pizza': [
-      {name: 'Pizza dough', quantity: '1 lb'},
-      {name: 'Tomato sauce', quantity: '1 cup'},
-      {name: 'Mozzarella cheese', quantity: '2 cups, shredded'},
-      {name: 'Parmesan cheese', quantity: '1/4 cup, grated'},
-      {name: 'Olive oil', quantity: '2 tablespoons'},
-      {name: 'Garlic', quantity: '2 cloves, minced'},
-      {name: 'Dried oregano', quantity: '1 teaspoon'},
-      {name: 'Salt', quantity: 'to taste'},
-      {name: 'Black pepper', quantity: 'to taste'},
-      {name: 'Toppings (pepperoni, mushrooms, etc.)', quantity: 'as desired'}
-    ]
-  };
-  
-  // Check for partial matches in food names
-  for (const [food, ingredients] of Object.entries(commonFoods)) {
-    if (foodName_lower.includes(food) || food.includes(foodName_lower)) {
-      return ingredients;
-    }
-  }
-  
-  // More generic fallback for unknown food types
-  return [
-    {name: foodName, quantity: 'As needed'},
-    {name: 'Salt', quantity: 'To taste'},
-    {name: 'Pepper', quantity: 'To taste'},
-    {name: 'Onion', quantity: '1 medium'},
-    {name: 'Garlic', quantity: '2 cloves'},
-    {name: 'Vegetable oil', quantity: '2 tablespoons'},
-    {name: 'Water or stock', quantity: '1 cup'}
-  ];
+  console.log('Note: No longer using default ingredients fallbacks');
+  return [];
 }
