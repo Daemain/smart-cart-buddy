@@ -22,7 +22,7 @@ serve(async (req) => {
       throw new Error('Recipe text is required');
     }
 
-    // Call OpenAI API
+    // Call OpenAI API with improved prompt
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -34,7 +34,7 @@ serve(async (req) => {
         messages: [
           { 
             role: 'system', 
-            content: 'You are an expert chef who can extract ingredients from recipes. Extract all ingredients from the given recipe text and format them as a JSON array of objects with "name" and "quantity" properties. For example: [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]. Only return the JSON array without any other text.'
+            content: 'You are an expert chef tasked with extracting ingredients from recipe text. Extract ONLY the ingredients (not the recipe title, steps, or instructions) and format them as a JSON array of objects with "name" and "quantity" properties. For example: [{"name": "flour", "quantity": "2 cups"}, {"name": "sugar", "quantity": "1 tbsp"}]. Only return the JSON array. Do not include any explanatory text.'
           },
           { role: 'user', content: recipeText }
         ],
@@ -61,10 +61,34 @@ serve(async (req) => {
       if (jsonMatch) {
         ingredients = JSON.parse(jsonMatch[0]);
       } else {
-        throw new Error('Failed to parse ingredients from AI response');
+        // If no valid JSON found, try a last resort simple parsing approach
+        const fallbackIngredients = parseIngredientsFallback(recipeText);
+        if (fallbackIngredients.length > 0) {
+          ingredients = fallbackIngredients;
+        } else {
+          throw new Error('Failed to parse ingredients from AI response');
+        }
       }
     }
 
+    // Additional validation to ensure we have an array of objects with name and quantity
+    if (!Array.isArray(ingredients) || ingredients.length === 0) {
+      const fallbackIngredients = parseIngredientsFallback(recipeText);
+      if (fallbackIngredients.length > 0) {
+        ingredients = fallbackIngredients;
+      } else {
+        throw new Error('Invalid ingredients format returned');
+      }
+    }
+
+    // Make sure each ingredient has the required properties
+    ingredients = ingredients.map(item => ({
+      name: typeof item.name === 'string' ? item.name : 'Unknown ingredient',
+      quantity: typeof item.quantity === 'string' ? item.quantity : ''
+    }));
+
+    console.log('Extracted ingredients:', JSON.stringify(ingredients));
+    
     return new Response(JSON.stringify({ ingredients }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
@@ -76,3 +100,66 @@ serve(async (req) => {
     });
   }
 });
+
+// Fallback parsing function if OpenAI fails
+function parseIngredientsFallback(text) {
+  const lines = text.split('\n');
+  const ingredients = [];
+  
+  const measurementUnits = [
+    'cup', 'cups', 'tbsp', 'tablespoon', 'tablespoons', 
+    'tsp', 'teaspoon', 'teaspoons', 'oz', 'ounce', 'ounces',
+    'pound', 'pounds', 'lb', 'lbs', 'g', 'gram', 'grams',
+    'kg', 'kilogram', 'kilograms', 'ml', 'milliliter', 'milliliters',
+    'l', 'liter', 'liters', 'pinch', 'dash', 'to taste'
+  ];
+  
+  for (const line of lines) {
+    const trimmedLine = line.trim();
+    if (!trimmedLine || trimmedLine.startsWith('Step') || trimmedLine.startsWith('Instruction')) continue;
+    
+    // Skip lines that look like headers, titles or instructions
+    if (trimmedLine.endsWith(':') || 
+        /^(Step|Instruction|Direction|Method|Preparation|Cook|Bake|Serves|Yield)s?\b/i.test(trimmedLine)) {
+      continue;
+    }
+    
+    // Check if line contains measurement units or starts with a number
+    const hasUnit = measurementUnits.some(unit => trimmedLine.toLowerCase().includes(unit));
+    const startsWithNumber = /^\d/.test(trimmedLine);
+    
+    if (hasUnit || startsWithNumber) {
+      // Try to separate quantity from name
+      const match = trimmedLine.match(/^([\d\/\.\s]+)?\s*(cup|cups|tbsp|tablespoon|tablespoons|tsp|teaspoon|teaspoons|oz|ounce|ounces|pound|pounds|lb|lbs|g|gram|grams|kg|kilogram|kilograms|ml|milliliter|milliliters|l|liter|liters|pinch|dash|to taste)s?\s+(?:of\s+)?(.+)$/i);
+      
+      if (match) {
+        const quantity = `${match[1] || ''} ${match[2] || ''}`.trim();
+        const name = match[3].trim();
+        ingredients.push({ name, quantity });
+      } else {
+        // If no specific match pattern, try to split on first space after a number
+        const numberMatch = trimmedLine.match(/^([\d\/\.\s]+(?:\s*[-–—]\s*[\d\/\.\s]+)?)\s+(.+)$/);
+        if (numberMatch) {
+          ingredients.push({
+            name: numberMatch[2].trim(),
+            quantity: numberMatch[1].trim()
+          });
+        } else {
+          // Last resort: treat the whole line as an ingredient name
+          ingredients.push({
+            name: trimmedLine,
+            quantity: ''
+          });
+        }
+      }
+    } else if (trimmedLine.length > 2) {
+      // If line doesn't have units but looks like an ingredient
+      ingredients.push({
+        name: trimmedLine,
+        quantity: ''
+      });
+    }
+  }
+  
+  return ingredients;
+}
