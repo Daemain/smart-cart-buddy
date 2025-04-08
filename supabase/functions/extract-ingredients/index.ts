@@ -191,7 +191,7 @@ CRITICAL INSTRUCTIONS:
 3. DO NOT make assumptions about invisible ingredients
 4. BE SPECIFIC about ingredient varieties (e.g., "jasmine rice" not just "rice" if you can tell)
 5. Include colors, textures, and specific varieties when visible
-6. If you can see quantities, mention them
+6. Provide realistic quantities based on what you see - estimate appropriate measurements for cooking
 7. If you cannot identify something with confidence, say "unidentified [color/texture] ingredient"
 8. DO NOT try to guess the name of the dish and then list its typical ingredients
 9. FOCUS EXCLUSIVELY on what is physically visible in this specific image
@@ -208,10 +208,10 @@ IMPORTANT: If the image is unclear or you cannot identify specific ingredients c
               { 
                 type: 'text', 
                 text: userDescription ? 
-                   `Analyze this food image and list ONLY the ingredients you can physically see in the image. 
+                   `Analyze this food image and list ONLY the ingredients you can physically see in the image with appropriate quantity estimates.
                     For context only (DO NOT use this to guess invisible ingredients): The food might be ${userDescription}.
-                    Again, ONLY list ingredients you can actually SEE in the image, not a generic recipe.` 
-                  : "Analyze this food image and list ONLY the ingredients you can physically see in the image. DO NOT provide a generic recipe."
+                    Again, ONLY list ingredients you can actually SEE in the image with estimated quantities, not a generic recipe.` 
+                  : "Analyze this food image and list ONLY the ingredients you can physically see in the image with appropriate quantity estimates. DO NOT provide a generic recipe."
               },
               {
                 type: 'image_url',
@@ -435,7 +435,7 @@ function extractIngredientsFromGoogleVisionResults(foodItems, detectedText, user
     const userDescriptionLower = userDescription.toLowerCase();
     const mainIngredient = {
       name: userDescription,
-      quantity: "amount visible in image"
+      quantity: estimateQuantity(userDescription)
     };
     
     // Only add if it's not already in the list
@@ -455,7 +455,7 @@ function extractIngredientsFromGoogleVisionResults(foodItems, detectedText, user
     
     ingredients.push({
       name: item,
-      quantity: "visible in image" 
+      quantity: estimateQuantity(item)
     });
   }
   
@@ -491,6 +491,119 @@ function extractIngredientsFromGoogleVisionResults(foodItems, detectedText, user
   }
   
   return ingredients;
+}
+
+// Function to estimate realistic quantities based on the ingredient type
+function estimateQuantity(ingredientName) {
+  // Convert to lowercase for matching
+  const name = ingredientName.toLowerCase();
+  
+  // Common protein sources (meats, fish, etc.)
+  if (name.includes('chicken') || name.includes('beef') || name.includes('pork') || 
+      name.includes('fish') || name.includes('lamb') || name.includes('turkey') ||
+      name.includes('shrimp') || name.includes('tofu')) {
+    return name.includes('ground') ? "1 pound" : "2-3 pieces";
+  }
+  
+  // Rice and grains
+  if (name.includes('rice') || name.includes('quinoa') || name.includes('couscous')) {
+    return "1 cup";
+  }
+  
+  // Pasta
+  if (name.includes('pasta') || name.includes('noodle') || name.includes('spaghetti')) {
+    return "8 oz";
+  }
+  
+  // Vegetables
+  if (name.includes('onion')) return "1 medium";
+  if (name.includes('garlic')) return "2-3 cloves";
+  if (name.includes('tomato')) return name.includes('cherry') ? "1 cup" : "2 medium";
+  if (name.includes('potato')) return "2 medium";
+  if (name.includes('carrot')) return "2 medium";
+  if (name.includes('pepper')) {
+    if (name.includes('bell')) return "1 medium";
+    return "1 teaspoon"; // Assuming ground pepper
+  }
+  if (name.includes('lettuce') || name.includes('spinach') || name.includes('kale')) {
+    return "2 cups";
+  }
+  if (name.includes('cucumber')) return "1 medium";
+  if (name.includes('zucchini')) return "1 medium";
+  if (name.includes('broccoli') || name.includes('cauliflower')) return "1 cup florets";
+  
+  // Fruits
+  if (name.includes('apple') || name.includes('orange') || name.includes('peach')) {
+    return "1 medium";
+  }
+  if (name.includes('banana')) return "1 medium";
+  if (name.includes('berry') || name.includes('strawberry') || name.includes('blueberry')) {
+    return "1 cup";
+  }
+  
+  // Dairy
+  if (name.includes('milk')) return "1 cup";
+  if (name.includes('yogurt')) return "1 cup";
+  if (name.includes('cream')) {
+    if (name.includes('heavy') || name.includes('whipping')) return "1/2 cup";
+    if (name.includes('sour')) return "1/4 cup";
+    return "2 tablespoons";
+  }
+  if (name.includes('cheese')) {
+    if (name.includes('grated') || name.includes('shredded')) return "1/2 cup";
+    return "4 oz";
+  }
+  if (name.includes('butter')) return "2 tablespoons";
+  if (name.includes('egg')) return name.includes('eggs') ? "3-4 eggs" : "1 egg";
+  
+  // Oils, vinegars, and condiments
+  if (name.includes('oil')) return "2 tablespoons";
+  if (name.includes('vinegar')) return "1 tablespoon";
+  if (name.includes('sauce')) {
+    if (name.includes('hot') || name.includes('soy')) return "1 tablespoon";
+    if (name.includes('tomato')) return "1 cup";
+    return "1/4 cup";
+  }
+  if (name.includes('mayo') || name.includes('mustard') || name.includes('ketchup')) {
+    return "2 tablespoons";
+  }
+  
+  // Herbs and spices
+  if (name.includes('salt') || name.includes('pepper') || 
+      name.includes('cumin') || name.includes('paprika') ||
+      name.includes('oregano') || name.includes('basil') ||
+      name.includes('thyme') || name.includes('spice')) {
+    return "1 teaspoon";
+  }
+  if (name.includes('herb') || name.includes('parsley') || name.includes('cilantro') || name.includes('mint')) {
+    return "2 tablespoons, chopped";
+  }
+  
+  // Beans and legumes
+  if (name.includes('bean') || name.includes('lentil') || name.includes('chickpea')) {
+    return "1 cup";
+  }
+  
+  // Nuts and seeds
+  if (name.includes('nut') || name.includes('seed') || 
+      name.includes('almond') || name.includes('walnut') ||
+      name.includes('cashew') || name.includes('sunflower') ||
+      name.includes('sesame')) {
+    return "1/4 cup";
+  }
+  
+  // Flours and dry ingredients
+  if (name.includes('flour') || name.includes('sugar') || name.includes('oat')) {
+    return "1 cup";
+  }
+  
+  // Liquids
+  if (name.includes('water') || name.includes('broth') || name.includes('stock')) {
+    return "2 cups";
+  }
+  
+  // Default fallback for unknown ingredients
+  return "to taste";
 }
 
 async function extractIngredientsWithOpenAI(recipeText) {
