@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -39,15 +40,27 @@ serve(async (req) => {
     if (imageBase64) {
       console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
       try {
-        // Enhanced image extraction with more specific and detailed prompt
+        // First try to use OpenAI for image extraction
         ingredients = await extractIngredientsFromImageWithOpenAI(imageBase64, userDescription || '');
         console.log('Successfully extracted ingredients from image with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
         console.error('OpenAI image extraction failed:', aiError);
-        return new Response(JSON.stringify({ error: 'Failed to analyze image. The OpenAI vision API might be experiencing issues.' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        
+        // Check if it's a quota error
+        if (aiError.message && aiError.message.includes('quota')) {
+          return new Response(JSON.stringify({ 
+            error: 'OpenAI API quota exceeded. Please try again later or try the text-based extraction instead.',
+            isQuotaError: true 
+          }), {
+            status: 429, // Too Many Requests
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } else {
+          return new Response(JSON.stringify({ error: 'Failed to analyze image. Please try again with a clearer image or use text input.' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
     }
     // Use text-based extraction as backup only
@@ -58,10 +71,22 @@ serve(async (req) => {
         console.log('Successfully extracted ingredients with OpenAI:', JSON.stringify(ingredients));
       } catch (aiError) {
         console.error('OpenAI text extraction failed:', aiError);
-        return new Response(JSON.stringify({ error: 'Failed to analyze recipe text. Try with an image instead.' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        
+        // Check if it's a quota error
+        if (aiError.message && aiError.message.includes('quota')) {
+          return new Response(JSON.stringify({ 
+            error: 'OpenAI API quota exceeded. Please try again later.',
+            isQuotaError: true 
+          }), {
+            status: 429, // Too Many Requests
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        } else {
+          return new Response(JSON.stringify({ error: 'Failed to analyze recipe text. Try with an image instead.' }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
     }
     
@@ -87,19 +112,20 @@ serve(async (req) => {
 async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescription) {
   console.log('Sending image to OpenAI vision API with description:', userDescription.substring(0, 50));
   
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${openAIApiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'gpt-4o',
-      max_tokens: 1500,
-      messages: [
-        { 
-          role: 'system', 
-          content: `You are a professional food scientist who specializes in identifying ingredients from food images with extreme precision.
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        max_tokens: 1500,
+        messages: [
+          { 
+            role: 'system', 
+            content: `You are a professional food scientist who specializes in identifying ingredients from food images with extreme precision.
 
 CRITICAL INSTRUCTIONS:
 1. ONLY identify ingredients that are PHYSICALLY VISIBLE in the image
@@ -117,66 +143,71 @@ Do not include ANY text outside of the JSON structure.
 Example: [{"name": "diced tomatoes", "quantity": "about 1 cup"}, {"name": "green bell pepper slices", "quantity": "5-6 slices"}]
 
 IMPORTANT: If the image is unclear or you cannot identify specific ingredients clearly, DO NOT resort to listing generic recipe ingredients - respond honestly with the few ingredients you can actually see or state that you cannot identify ingredients clearly.`
-        },
-        { 
-          role: 'user', 
-          content: [
-            { 
-              type: 'text', 
-              text: userDescription ? 
-                 `Analyze this food image and list ONLY the ingredients you can physically see in the image. 
-                  For context only (DO NOT use this to guess invisible ingredients): The food might be ${userDescription}.
-                  Again, ONLY list ingredients you can actually SEE in the image, not a generic recipe.` 
-                : "Analyze this food image and list ONLY the ingredients you can physically see in the image. DO NOT provide a generic recipe."
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${imageBase64}`
+          },
+          { 
+            role: 'user', 
+            content: [
+              { 
+                type: 'text', 
+                text: userDescription ? 
+                   `Analyze this food image and list ONLY the ingredients you can physically see in the image. 
+                    For context only (DO NOT use this to guess invisible ingredients): The food might be ${userDescription}.
+                    Again, ONLY list ingredients you can actually SEE in the image, not a generic recipe.` 
+                  : "Analyze this food image and list ONLY the ingredients you can physically see in the image. DO NOT provide a generic recipe."
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${imageBase64}`
+                }
               }
-            }
-          ]
-        }
-      ],
-      temperature: 0.1, // Lower temperature for more deterministic output
-    }),
-  });
+            ]
+          }
+        ],
+        temperature: 0.1, // Lower temperature for more deterministic output
+      }),
+    });
 
-  if (!response.ok) {
-    const errorData = await response.json();
-    console.error('OpenAI API error response:', errorData);
-    throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
-  }
-
-  const data = await response.json();
-  
-  const ingredientsText = data.choices[0].message.content;
-  console.log('Raw OpenAI image analysis response:', ingredientsText);
-  
-  // Parse the ingredients JSON
-  try {
-    // Try to parse the JSON directly
-    const parsed = JSON.parse(ingredientsText);
-    if (Array.isArray(parsed) && parsed.length > 0) {
-      return parsed;
-    } else {
-      throw new Error('Invalid response format');
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error response:', errorData);
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText}`);
     }
-  } catch (e) {
-    console.error('Failed to parse OpenAI response as JSON:', e);
-    // Try to extract JSON from text
-    const jsonMatch = ingredientsText.match(/\[(.|\n)*\]/);
-    if (jsonMatch) {
-      try {
-        const extracted = JSON.parse(jsonMatch[0]);
-        if (Array.isArray(extracted) && extracted.length > 0) {
-          return extracted;
-        }
-      } catch (e2) {
-        console.error('Failed to parse JSON from regex match:', e2);
+
+    const data = await response.json();
+    
+    const ingredientsText = data.choices[0].message.content;
+    console.log('Raw OpenAI image analysis response:', ingredientsText);
+    
+    // Parse the ingredients JSON
+    try {
+      // Try to parse the JSON directly
+      const parsed = JSON.parse(ingredientsText);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      } else {
+        throw new Error('Invalid response format');
       }
+    } catch (e) {
+      console.error('Failed to parse OpenAI response as JSON:', e);
+      // Try to extract JSON from text
+      const jsonMatch = ingredientsText.match(/\[(.|\n)*\]/);
+      if (jsonMatch) {
+        try {
+          const extracted = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(extracted) && extracted.length > 0) {
+            return extracted;
+          }
+        } catch (e2) {
+          console.error('Failed to parse JSON from regex match:', e2);
+        }
+      }
+      throw new Error('Could not parse ingredients from AI response');
     }
-    throw new Error('Could not parse ingredients from AI response');
+  } catch (error) {
+    // Add more details to the error for better debugging
+    console.error('Error in extractIngredientsFromImageWithOpenAI:', error);
+    throw error; // Re-throw to be handled by the caller
   }
 }
 
@@ -252,3 +283,4 @@ function generateDefaultIngredients(foodName) {
   console.log('Note: No longer using default ingredients fallbacks');
   return [];
 }
+

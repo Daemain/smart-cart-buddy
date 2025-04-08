@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
@@ -201,6 +200,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
       }
       
       if (data.error) {
+        // Handle quota error specifically
+        if (data.isQuotaError) {
+          throw new Error(`OpenAI API quota exceeded. Please try again later or contact support.`);
+        }
         throw new Error(data.error);
       }
       
@@ -262,7 +265,22 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           console.log("Extracted ingredients from image:", ingredients);
         } catch (aiError) {
           console.error('Image AI extraction failed:', aiError);
-          setExtractionError(aiError.message);
+          
+          // Handle quota exceeded error
+          if (aiError.message && aiError.message.includes('quota')) {
+            setExtractionError("OpenAI API quota exceeded. Please try again later or try text-based extraction instead.");
+            
+            // Show special toast for quota error
+            toast({
+              title: "API Quota Exceeded",
+              description: "The AI service has reached its usage limit. Please try again later or use text extraction instead.",
+              variant: "destructive",
+              duration: 8000
+            });
+          } else {
+            setExtractionError(aiError.message);
+          }
+          
           setIsExtracting(false);
           return;
         }
@@ -273,7 +291,22 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
           console.log("Extracted ingredients from text:", ingredients);
         } catch (aiError) {
           console.error('Text AI extraction failed:', aiError);
-          setExtractionError(aiError.message);
+          
+          // Handle quota exceeded error
+          if (aiError.message && aiError.message.includes('quota')) {
+            setExtractionError("OpenAI API quota exceeded. Please try again later.");
+            
+            // Show special toast for quota error
+            toast({
+              title: "API Quota Exceeded",
+              description: "The AI service has reached its usage limit. Please try again later.",
+              variant: "destructive",
+              duration: 8000
+            });
+          } else {
+            setExtractionError(aiError.message);
+          }
+          
           setIsExtracting(false);
           return;
         }
