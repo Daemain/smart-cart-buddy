@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useGroceryList } from '@/hooks/useGroceryList';
 import GroceryItem from '@/components/GroceryItem';
@@ -18,6 +17,7 @@ import { Loader2 } from 'lucide-react';
 import { toast } from '@/components/ui/use-toast';
 
 const Index = () => {
+  
   const {
     groceries,
     allGroceries,
@@ -33,6 +33,7 @@ const Index = () => {
     saveRecipe,
     recipes,
     addRecipeToList,
+    onCompleteRecipe, // This changed from `handleCompleteRecipe` to `onCompleteRecipe`
     isLoading,
     counts
   } = useGroceryList();
@@ -100,30 +101,6 @@ const Index = () => {
     }).catch(error => {
       console.error('Failed to save recipe:', error);
     });
-  };
-
-  const handleCompleteRecipe = (recipe: Recipe) => {
-    // Mark all ingredients from this recipe as completed
-    recipe.ingredients.forEach(ingredient => {
-      const matchingItems = allGroceries.filter(
-        item => item.recipeId === recipe.id && 
-        item.name.toLowerCase() === ingredient.name.toLowerCase() && 
-        !item.isCompleted
-      );
-      
-      // Toggle completion for each matching item
-      matchingItems.forEach(item => {
-        toggleCompletion(item.id);
-      });
-    });
-    
-    toast({
-      title: "Recipe completed",
-      description: `"${recipe.title}" has been marked as completed.`,
-    });
-    
-    // Change the category to 'completed' to show the user the completed items
-    setActiveCategory('completed');
   };
 
   const canAccessPremium = isPremium || !hasFreeTrialUsed;
@@ -216,7 +193,7 @@ const Index = () => {
                 <RecipeFolder 
                   recipes={recipes} 
                   onAddToList={addRecipeToList} 
-                  onCompleteRecipe={handleCompleteRecipe}
+                  onCompleteRecipe={onCompleteRecipe} // This changed from `handleCompleteRecipe` to `onCompleteRecipe`
                   activeCategory={activeCategory}
                 />
                 
