@@ -28,9 +28,27 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [expandedRecipes, setExpandedRecipes] = useState<Record<string, boolean>>({});
   const [checkedIngredients, setCheckedIngredients] = useState<Record<string, boolean>>({});
+  const [completedRecipes, setCompletedRecipes] = useState<Record<string, boolean>>({});
 
-  // Only show on the 'all' category
-  if (recipes.length === 0 || activeCategory !== 'all') {
+  // Only show on the 'all' or 'completed' category
+  if (recipes.length === 0 || (activeCategory !== 'all' && activeCategory !== 'completed')) {
+    return null;
+  }
+
+  // Filter recipes based on the active category
+  const filteredRecipes = recipes.filter((recipe) => {
+    if (activeCategory === 'all') {
+      // Only show non-completed recipes in "All"
+      return !completedRecipes[recipe.id];
+    } else if (activeCategory === 'completed') {
+      // Only show completed recipes in "Completed"
+      return completedRecipes[recipe.id];
+    }
+    return true;
+  });
+
+  // Don't render if there are no filtered recipes to show
+  if (filteredRecipes.length === 0) {
     return null;
   }
 
@@ -51,6 +69,11 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
 
   const handleCompleteRecipe = (recipe: Recipe) => {
     if (onCompleteRecipe) {
+      // Update local state to track completed recipes
+      setCompletedRecipes(prev => ({
+        ...prev,
+        [recipe.id]: !prev[recipe.id]
+      }));
       onCompleteRecipe(recipe);
     }
   };
@@ -67,14 +90,14 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
             <ChefHat className="h-4 w-4 text-primary" />
             <span className="font-medium">My Recipes</span>
             <span className="text-xs text-muted-foreground rounded-full bg-muted px-2 py-0.5">
-              {recipes.length}
+              {filteredRecipes.length}
             </span>
           </div>
           {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="divide-y">
-            {recipes.map((recipe) => (
+            {filteredRecipes.map((recipe) => (
               <div key={recipe.id} className="group">
                 <div className="p-4 hover:bg-muted/20 transition-colors">
                   <div className="flex items-center justify-between">
@@ -83,6 +106,7 @@ const RecipeFolder: React.FC<RecipeFolderProps> = ({
                         <Checkbox 
                           id={`recipe-${recipe.id}`} 
                           className="h-5 w-5 flex-shrink-0 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                          checked={!!completedRecipes[recipe.id]}
                           onCheckedChange={() => handleCompleteRecipe(recipe)}
                         />
                       )}
