@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -72,6 +71,36 @@ serve(async (req) => {
     let analysisMethod = '';
     let apiErrorMessages = [];
     
+    // For text-based extraction or traditional dish identification
+    if (recipeText || (userDescription && userDescription.trim().length > 0)) {
+      const textToAnalyze = recipeText || userDescription;
+      console.log('Checking if input is a traditional dish name:', textToAnalyze);
+      
+      // Check if the input is a traditional dish name that we should look up
+      if (isLikelyTraditionalDish(textToAnalyze)) {
+        console.log(`"${textToAnalyze}" appears to be a traditional dish, using OpenAI for recipe lookup`);
+        
+        if (hasOpenAIKey) {
+          try {
+            ingredients = await getTraditionalRecipeIngredients(textToAnalyze);
+            console.log('Successfully extracted traditional recipe ingredients:', JSON.stringify(ingredients));
+            analysisMethod = 'traditional-recipe';
+            
+            // If we've already gotten ingredients from the traditional recipe lookup, return them
+            if (ingredients && ingredients.length > 0) {
+              return new Response(JSON.stringify({ ingredients, analysisMethod }), {
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+              });
+            }
+          } catch (aiError) {
+            console.error('OpenAI traditional recipe extraction failed:', aiError);
+            apiErrorMessages.push(`OpenAI Recipe: ${aiError.message}`);
+            // Continue to try other methods if this fails
+          }
+        }
+      }
+    }
+    
     // Prioritize image-based extraction if available
     if (imageBase64) {
       console.log('Processing image with description:', userDescription ? userDescription.substring(0, 100) + '...' : 'No description provided');
@@ -83,6 +112,22 @@ serve(async (req) => {
           ingredients = await extractIngredientsWithGoogleVision(imageBase64, userDescription || '');
           console.log('Successfully extracted ingredients with Google Vision:', JSON.stringify(ingredients));
           analysisMethod = 'google';
+          
+          // If the description looks like a traditional dish and we got generic results, try looking up the recipe
+          if (isLikelyTraditionalDish(userDescription) && hasOpenAIKey && isGenericIngredientList(ingredients)) {
+            console.log(`Description "${userDescription}" appears to be a traditional dish and Google results were generic. Trying traditional recipe lookup.`);
+            try {
+              const traditionalIngredients = await getTraditionalRecipeIngredients(userDescription);
+              if (traditionalIngredients && traditionalIngredients.length > 0) {
+                ingredients = traditionalIngredients;
+                analysisMethod = 'traditional-recipe';
+                console.log('Successfully extracted traditional recipe ingredients:', JSON.stringify(ingredients));
+              }
+            } catch (recipeError) {
+              console.error('Traditional recipe lookup failed:', recipeError);
+              // Keep the Google Vision results if the traditional recipe lookup fails
+            }
+          }
         } catch (googleError) {
           console.error('Google Vision extraction failed:', googleError);
           apiErrorMessages.push(`Google Vision: ${googleError.message}`);
@@ -162,6 +207,168 @@ serve(async (req) => {
     });
   }
 });
+
+// Check if the ingredient list appears to be generic rather than specific
+function isGenericIngredientList(ingredients) {
+  if (!ingredients || ingredients.length === 0) return true;
+  
+  // Count generic terms
+  const genericTerms = ['rice', 'food', 'dish', 'meal', 'vegetable', 'spice'];
+  const specificTerms = ['tomato', 'onion', 'garlic', 'pepper', 'chicken', 'beef', 'oil'];
+  
+  let genericCount = 0;
+  let specificCount = 0;
+  
+  ingredients.forEach(item => {
+    const nameLower = item.name.toLowerCase();
+    
+    // Count exact matches for generic terms
+    if (genericTerms.some(term => nameLower === term || nameLower.includes(term))) {
+      genericCount++;
+    }
+    
+    // Count exact matches for specific ingredients
+    if (specificTerms.some(term => nameLower === term || nameLower.includes(term))) {
+      specificCount++;
+    }
+  });
+  
+  console.log(`Ingredient specificity check: ${genericCount} generic terms, ${specificCount} specific terms`);
+  
+  // If more than 50% are generic and we have few specific ingredients, consider it generic
+  return (genericCount > ingredients.length * 0.5) && (specificCount < 3);
+}
+
+// Determine if a text is likely the name of a traditional dish
+function isLikelyTraditionalDish(text) {
+  if (!text) return false;
+  
+  const textLower = text.toLowerCase().trim();
+  
+  // List of keywords that suggest the text is a recipe instruction rather than a dish name
+  const recipeKeywords = ['cup', 'tablespoon', 'teaspoon', 'pound', 'grams', 'mix', 'stir', 'cook', 'boil', 'bake'];
+  
+  // If the text contains recipe instruction keywords, it's probably not just a dish name
+  if (recipeKeywords.some(keyword => textLower.includes(keyword))) {
+    return false;
+  }
+  
+  // Known traditional dishes for instant recognition
+  const knownDishes = [
+    'jollof rice', 'paella', 'risotto', 'sushi', 'pizza', 'lasagna', 'curry', 'biryani',
+    'pad thai', 'gumbo', 'jambalaya', 'pho', 'ramen', 'tacos', 'chili', 'bibimbap',
+    'couscous', 'kimchi', 'hummus', 'falafel', 'moussaka', 'pasta', 'hamburger',
+    'egusi', 'mole', 'tajine', 'dolma', 'gyro', 'shawarma', 'poutine', 'goulash'
+  ];
+  
+  // Check if it's a known dish
+  if (knownDishes.some(dish => textLower.includes(dish))) {
+    return true;
+  }
+  
+  // If the text is short (likely a dish name rather than instructions)
+  // and doesn't contain spaces (suggesting it's not a full sentence)
+  // it might be a traditional dish name
+  return textLower.split(' ').length <= 3;
+}
+
+// Get ingredients for a traditional dish by name
+async function getTraditionalRecipeIngredients(dishName) {
+  if (!openAIApiKey) {
+    throw new Error('OpenAI API key is not configured');
+  }
+  
+  console.log(`Getting traditional recipe ingredients for: ${dishName}`);
+  
+  try {
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openAIApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [
+          { 
+            role: 'system', 
+            content: `You are a professional chef with expertise in global cuisine, specializing in traditional and authentic recipes. 
+            
+Your task is to provide an AUTHENTIC and COMPREHENSIVE list of ingredients for the traditional dish the user mentions.
+
+If the user mentions a traditional dish (like "Jollof Rice" or "Paella"), provide ALL the authentic ingredients typically used in its preparation with specific quantities.
+
+IMPORTANT RULES:
+1. ONLY return a valid JSON array of objects with "name" and "quantity" properties
+2. Include ALL traditional ingredients, not just the main ones
+3. Be SPECIFIC and COMPREHENSIVE (e.g., for Jollof Rice, include rice, tomatoes, onions, peppers, spices, etc.)
+4. Use realistic quantities that would make a typical family-sized portion
+5. Format quantities in standard cooking measurements (cups, tablespoons, etc.)
+
+RESPONSE FORMAT EXAMPLE:
+[
+  {"name": "long grain rice", "quantity": "2 cups"},
+  {"name": "tomatoes", "quantity": "4 medium"},
+  {"name": "onion", "quantity": "1 large"},
+  {"name": "red bell pepper", "quantity": "1 medium"}
+]
+
+DO NOT include any text outside of the JSON structure.`
+          },
+          { role: 'user', content: `Provide a complete authentic ingredient list with quantities for ${dishName}.` }
+        ],
+        temperature: 0.3, // Lower temperature for more consistent results
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error('OpenAI API error response:', errorData);
+      
+      if (errorData.error?.code === 'rate_limit_exceeded' || 
+          errorData.error?.type === 'insufficient_quota' ||
+          (errorData.error?.message && errorData.error.message.includes('quota'))) {
+        throw new Error(`OpenAI API quota exceeded: ${errorData.error?.message || 'Rate limit reached'}`);
+      }
+      
+      throw new Error(`OpenAI API error: ${errorData.error?.message || response.statusText || 'Unknown API error'}`);
+    }
+
+    const data = await response.json();
+    
+    const ingredientsText = data.choices[0].message.content;
+    console.log('Raw OpenAI traditional recipe response:', ingredientsText);
+    
+    // Parse the ingredients JSON
+    try {
+      // Try to parse the JSON directly
+      const parsed = JSON.parse(ingredientsText);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      } else {
+        throw new Error('Invalid response format');
+      }
+    } catch (e) {
+      console.error('Failed to parse OpenAI response as JSON:', e);
+      // Try to extract JSON from text
+      const jsonMatch = ingredientsText.match(/\[(.|\n)*\]/);
+      if (jsonMatch) {
+        try {
+          const extracted = JSON.parse(jsonMatch[0]);
+          if (Array.isArray(extracted) && extracted.length > 0) {
+            return extracted;
+          }
+        } catch (e2) {
+          console.error('Failed to parse JSON from regex match:', e2);
+        }
+      }
+      throw new Error('Could not parse ingredients from AI response');
+    }
+  } catch (error) {
+    console.error('Error in getTraditionalRecipeIngredients:', error);
+    throw error;
+  }
+}
 
 async function extractIngredientsFromImageWithOpenAI(imageBase64, userDescription) {
   console.log('Sending image to OpenAI vision API with description:', userDescription.substring(0, 50));
@@ -369,6 +576,26 @@ async function extractIngredientsWithGoogleVision(imageBase64, userDescription) 
     // Skip processing if we don't have any useful data
     if (foodRelatedItems.length === 0 && !detectedText && !userDescription) {
       throw new Error('No food items or text detected in the image');
+    }
+    
+    // If user described a traditional dish and we detected it's a rice dish, 
+    // use the traditional recipe lookup instead
+    if (isLikelyTraditionalDish(userDescription) && 
+        foodRelatedItems.some(item => item.toLowerCase().includes('rice'))) {
+      console.log('Detected rice dish and user described a traditional dish. Using traditional recipe lookup.');
+      
+      if (openAIApiKey) {
+        try {
+          const traditionalIngredients = await getTraditionalRecipeIngredients(userDescription);
+          if (traditionalIngredients && traditionalIngredients.length > 0) {
+            console.log('Successfully retrieved traditional recipe ingredients:', JSON.stringify(traditionalIngredients));
+            return traditionalIngredients;
+          }
+        } catch (recipeError) {
+          console.error('Traditional recipe lookup failed:', recipeError);
+          // Continue with regular processing if traditional recipe lookup fails
+        }
+      }
     }
     
     // Process the Google Vision results to extract ingredients
