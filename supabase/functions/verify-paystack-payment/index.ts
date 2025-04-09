@@ -74,9 +74,9 @@ serve(async (req) => {
       );
     }
 
-    // Verify the amount (2.99 USD in kobo or your local currency)
+    // Verify the amount (equivalent to $2.99 in NGN)
     // This should match your subscription price
-    const expectedAmount = 299 * 100; // Convert $2.99 to cents/kobo
+    const expectedAmount = 1090 * 100; // ₦1,090 in kobo
     if (result.data.amount < expectedAmount) {
       return new Response(
         JSON.stringify({ 

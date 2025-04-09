@@ -41,8 +41,8 @@ const PremiumBanner: React.FC<PremiumBannerProps> = ({
     initializePayment({
       key: PAYSTACK_PUBLIC_KEY,
       email: user.email,
-      amount: 299 * 100, // $2.99 in cents/kobo
-      currency: "USD", // Explicitly set currency to USD
+      amount: 1090 * 100, // ₦1,090 (equivalent to roughly $2.99) in kobo
+      currency: "NGN", // Use NGN (Nigerian Naira) instead of USD
       metadata: {
         userId: user.id,
         custom_fields: [
@@ -77,7 +77,7 @@ const PremiumBanner: React.FC<PremiumBannerProps> = ({
         <h3 className="font-medium text-sm">Upgrade to Premium</h3>
       </div>
       
-      <p className="text-xs text-muted-foreground mb-2">Unlock auto-suggestions, use Deepseek AI to extract ingredients from your favourite meals, shared lists, dark mode, and more for just $2.99/month</p>
+      <p className="text-xs text-muted-foreground mb-2">Unlock auto-suggestions, use Deepseek AI to extract ingredients from your favourite meals, shared lists, dark mode, and more for just ₦1,090/month</p>
       
       <Button onClick={handleUpgrade} className="w-full bg-gradient-to-r from-primary to-secondary text-white" size="sm">
         Upgrade Now
