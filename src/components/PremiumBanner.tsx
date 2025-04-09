@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -11,8 +12,8 @@ interface PremiumBannerProps {
   onUpgrade?: () => void;
 }
 
-// Paystack public key - using test key format
-const PAYSTACK_PUBLIC_KEY = 'pk_test_65a0352a46dda76cc37cd0e38de8a5fa53d33fa9'; // Your actual test public key
+// Paystack public key - using live key
+const PAYSTACK_PUBLIC_KEY = 'pk_live_17192c1c2a5e395f00b232ef6ebfee74f2c49244'; // Live public key
 
 const PremiumBanner: React.FC<PremiumBannerProps> = ({
   onDismiss,
