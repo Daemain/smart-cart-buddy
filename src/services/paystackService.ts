@@ -1,12 +1,13 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
 export interface PaystackConfig {
-  key: string; // Changed from publicKey to key to match Paystack's expected property name
+  key: string; // Paystack's expected property name for public key
   email: string;
   amount: number; // in kobo (smallest currency unit)
   currency?: string;
-  ref?: string; // Changed from reference to ref to match Paystack's expected property name
+  ref?: string; // Paystack's expected property name for transaction reference
   metadata?: Record<string, any>;
   callback?: (response: PaystackResponse) => void;
   onClose?: () => void;
