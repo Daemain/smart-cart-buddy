@@ -10,6 +10,7 @@ import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import TawkToChat from "./components/TawkToChat";
+import PaymentSuccess from "./components/PaymentSuccess";
 
 const queryClient = new QueryClient();
 
@@ -27,6 +28,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Index />
+                </ProtectedRoute>
+              } 
+            />
+            <Route 
+              path="/payment/success" 
+              element={
+                <ProtectedRoute>
+                  <PaymentSuccess />
                 </ProtectedRoute>
               } 
             />
