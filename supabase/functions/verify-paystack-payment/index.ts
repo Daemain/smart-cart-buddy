@@ -74,9 +74,9 @@ serve(async (req) => {
       );
     }
 
-    // Verify the amount (1.99 USD in kobo or your local currency)
+    // Verify the amount (2.99 USD in kobo or your local currency)
     // This should match your subscription price
-    const expectedAmount = 199 * 100; // Convert $1.99 to cents/kobo
+    const expectedAmount = 299 * 100; // Convert $2.99 to cents/kobo
     if (result.data.amount < expectedAmount) {
       return new Response(
         JSON.stringify({ 
