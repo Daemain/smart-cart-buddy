@@ -12,8 +12,8 @@ interface PremiumBannerProps {
   onUpgrade?: () => void;
 }
 
-// Paystack public key
-const PAYSTACK_PUBLIC_KEY = 'pk_live_65a0352a46dda76cc37cd0e38de8a5fa53d33fa9'; // Replace with your actual public key
+// Paystack public key - using test key format
+const PAYSTACK_PUBLIC_KEY = 'pk_test_yourkeyhere'; // Replace with your actual test public key
 
 const PremiumBanner: React.FC<PremiumBannerProps> = ({
   onDismiss,
