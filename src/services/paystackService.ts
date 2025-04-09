@@ -11,6 +11,7 @@ export interface PaystackConfig {
   metadata?: Record<string, any>;
   callback?: (response: PaystackResponse) => void;
   onClose?: () => void;
+  key?: string; // Added this property to fix the type error
 }
 
 export interface PaystackResponse {
@@ -30,7 +31,7 @@ export const initializePayment = (config: PaystackConfig): void => {
         // Access the PaystackPop object
         if (window.PaystackPop) {
           const handler = window.PaystackPop.setup({
-            key: config.publicKey, // Replace with your public key
+            key: config.publicKey, // Using publicKey from config
             email: config.email,
             amount: config.amount,
             currency: config.currency || 'NGN',
