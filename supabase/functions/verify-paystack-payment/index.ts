@@ -42,6 +42,8 @@ serve(async (req) => {
       throw new Error('Missing payment reference');
     }
 
+    console.log(`Verifying payment with reference: ${reference}`);
+
     // Call Paystack API to verify the payment
     const response = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
       method: 'GET',
@@ -52,6 +54,7 @@ serve(async (req) => {
     });
 
     const result: PaystackVerifyResponse = await response.json();
+    console.log("Paystack verification response:", JSON.stringify(result));
 
     if (!result.status) {
       throw new Error(result.message || 'Payment verification failed');
@@ -87,6 +90,9 @@ serve(async (req) => {
       );
     }
 
+    // Extract user ID from metadata if available
+    const userId = result.data?.metadata?.userId;
+    
     // Payment verified successfully
     return new Response(
       JSON.stringify({
@@ -95,6 +101,7 @@ serve(async (req) => {
         data: {
           reference: result.data.reference,
           email: result.data.customer.email,
+          userId: userId,
         },
       }),
       {
