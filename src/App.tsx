@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
+import TawkToChat from "./components/TawkToChat";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,10 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
+        <TawkToChat 
+          tawkId="YOUR_TAWK_ID" 
+          autoHide={false}
+        />
       </AuthProvider>
     </TooltipProvider>
   </QueryClientProvider>
