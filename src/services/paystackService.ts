@@ -1,18 +1,15 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
 export interface PaystackConfig {
-  publicKey: string;
+  key: string; // Changed from publicKey to key to match Paystack's expected property name
   email: string;
   amount: number; // in kobo (smallest currency unit)
   currency?: string;
-  reference?: string;
+  ref?: string; // Changed from reference to ref to match Paystack's expected property name
   metadata?: Record<string, any>;
   callback?: (response: PaystackResponse) => void;
   onClose?: () => void;
-  key?: string; // Added this property to fix the type error
-  ref?: string; // Added this property to fix the type error
 }
 
 export interface PaystackResponse {
@@ -32,11 +29,11 @@ export const initializePayment = (config: PaystackConfig): void => {
         // Access the PaystackPop object
         if (window.PaystackPop) {
           const handler = window.PaystackPop.setup({
-            key: config.publicKey, // Using publicKey from config
+            key: config.key,
             email: config.email,
             amount: config.amount,
             currency: config.currency || 'NGN',
-            ref: config.reference || generateReference(),
+            ref: config.ref || generateReference(),
             metadata: config.metadata || {},
             callback: (response: PaystackResponse) => {
               // Handle successful payment

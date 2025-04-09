@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Sparkles, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -39,7 +38,7 @@ const PremiumBanner: React.FC<PremiumBannerProps> = ({
     
     // Initialize Paystack payment
     initializePayment({
-      publicKey: PAYSTACK_PUBLIC_KEY,
+      key: PAYSTACK_PUBLIC_KEY, // Changed from publicKey to key
       email: user.email,
       amount: 199 * 100, // $1.99 in cents/kobo
       metadata: {
