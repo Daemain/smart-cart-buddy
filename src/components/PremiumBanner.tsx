@@ -42,6 +42,7 @@ const PremiumBanner: React.FC<PremiumBannerProps> = ({
       key: PAYSTACK_PUBLIC_KEY,
       email: user.email,
       amount: 299 * 100, // $2.99 in cents/kobo
+      currency: "USD", // Explicitly set currency to USD
       metadata: {
         userId: user.id,
         custom_fields: [

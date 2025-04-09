@@ -33,7 +33,7 @@ export const initializePayment = (config: PaystackConfig): void => {
             key: config.key,
             email: config.email,
             amount: config.amount,
-            currency: config.currency || 'NGN',
+            currency: config.currency || 'USD', // Default to USD if not specified
             ref: config.ref || generateReference(),
             metadata: config.metadata || {},
             callback: (response: PaystackResponse) => {
