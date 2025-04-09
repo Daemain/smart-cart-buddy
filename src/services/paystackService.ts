@@ -12,6 +12,7 @@ export interface PaystackConfig {
   callback?: (response: PaystackResponse) => void;
   onClose?: () => void;
   key?: string; // Added this property to fix the type error
+  ref?: string; // Added this property to fix the type error
 }
 
 export interface PaystackResponse {
