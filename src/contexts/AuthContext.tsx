@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -159,13 +160,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Starting Google login process...");
       
-      const redirectUrl = `${window.location.origin}/auth`;
-      console.log("Redirect URL:", redirectUrl);
+      // Using a hard-coded URL ensures consistency across environments
+      // This is important for Google auth which is strict about redirect URLs
+      const supabaseAuthCallbackUrl = `${window.location.origin}/auth`;
+      console.log("Redirect URL:", supabaseAuthCallbackUrl);
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl
+          redirectTo: supabaseAuthCallbackUrl,
+          queryParams: {
+            // Adding prompt parameter to ensure user can select account
+            prompt: 'select_account'
+          }
         }
       });
       
@@ -186,10 +193,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithFacebook = async () => {
     try {
+      const redirectUrl = `${window.location.origin}/auth`;
+      console.log("Facebook redirect URL:", redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
         options: {
-          redirectTo: window.location.origin + '/auth'
+          redirectTo: redirectUrl
         }
       });
       
@@ -208,11 +218,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithInstagram = async () => {
     try {
+      const redirectUrl = `${window.location.origin}/auth`;
+      console.log("Instagram redirect URL:", redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
           scopes: 'instagram',
-          redirectTo: window.location.origin + '/auth'
+          redirectTo: redirectUrl
         }
       });
       
