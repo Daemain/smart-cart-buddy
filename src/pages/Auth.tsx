@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -24,6 +24,19 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isMobile = useIsMobile();
+
+  useEffect(() => {
+    // Check if we're coming back from an OAuth redirect
+    const searchParams = new URLSearchParams(window.location.search);
+    const error = searchParams.get('error');
+    const errorDescription = searchParams.get('error_description');
+    
+    if (error) {
+      console.error('OAuth redirect error:', error, errorDescription);
+    }
+    
+    console.log('Auth page loaded, URL:', window.location.href);
+  }, []);
 
   // Redirect if already logged in
   if (!isLoading && user) {
@@ -59,6 +72,8 @@ const Auth = () => {
   const handleSocialLogin = async (provider: 'google' | 'facebook' | 'instagram') => {
     setIsSubmitting(true);
     try {
+      console.log(`Starting ${provider} sign in...`);
+      
       if (provider === 'google') {
         await signInWithGoogle();
       } else if (provider === 'facebook') {
@@ -66,6 +81,8 @@ const Auth = () => {
       } else if (provider === 'instagram') {
         await signInWithInstagram();
       }
+      
+      console.log(`${provider} sign in process initiated successfully`);
       // No navigation needed here as OAuth redirects happen automatically
     } catch (error) {
       console.error(`${provider} sign in error:`, error);

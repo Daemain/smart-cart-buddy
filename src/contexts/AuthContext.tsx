@@ -160,12 +160,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Starting Google login process...");
       
-      // Using a hard-coded URL ensures consistency across environments
-      // This is important for Google auth which is strict about redirect URLs
-      const supabaseAuthCallbackUrl = `${window.location.origin}/auth`;
-      console.log("Redirect URL:", supabaseAuthCallbackUrl);
+      // Debug the current URL and origin
+      console.log("Current URL:", window.location.href);
+      console.log("Origin:", window.location.origin);
       
-      const { error } = await supabase.auth.signInWithOAuth({
+      // Make sure we're using the fully qualified callback URL
+      const supabaseAuthCallbackUrl = `${window.location.origin}/auth`;
+      console.log("Google redirect URL:", supabaseAuthCallbackUrl);
+      
+      // Log Supabase project URL
+      console.log("Supabase project URL:", "https://yrbrflygrfazureptxfo.supabase.co");
+      
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: supabaseAuthCallbackUrl,
@@ -175,6 +181,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         }
       });
+      
+      // Log the data returned by Supabase
+      console.log("Supabase OAuth response:", data);
       
       if (error) {
         console.error("Google OAuth error:", error);
