@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -29,7 +28,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profile, setProfile] = useState<Profile | null>(null);
 
   useEffect(() => {
-    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log('Auth state changed:', event, session?.user?.id);
@@ -40,9 +38,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           user: session?.user ?? null,
         }));
 
-        // If user signs in or signs out, update accordingly
         if (event === 'SIGNED_IN' && session?.user) {
-          // Use setTimeout to prevent potential deadlocks
           setTimeout(() => {
             fetchProfile(session.user.id);
           }, 0);
@@ -52,7 +48,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Then check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthState({
         session,
@@ -72,7 +67,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const fetchProfile = async (userId: string) => {
     try {
-      // Fix: Using a more type-safe approach to query the profiles table
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
@@ -164,10 +158,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       console.log("Starting Google login process...");
+      
+      const redirectUrl = `${window.location.origin}/auth`;
+      console.log("Redirect URL:", redirectUrl);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: window.location.origin + '/auth'
+          redirectTo: redirectUrl
         }
       });
       
