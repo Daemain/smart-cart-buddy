@@ -1,5 +1,6 @@
 
 import React, { useEffect } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 // Define the Tawk_API type
 declare global {
@@ -13,6 +14,10 @@ declare global {
       maximize?: () => void;
       minimize?: () => void;
       endChat?: () => void;
+      isChatHidden?: () => boolean;
+      onChatHidden?: () => void;
+      onChatMaximized?: () => void;
+      onChatMinimized?: () => void;
       setAttributes?: (attributes: Record<string, string>, callback?: () => void) => void;
     };
   }
@@ -34,37 +39,75 @@ const TawkToChat: React.FC<TawkToChatProps> = ({
   autoHide = false,
   userInfo 
 }) => {
+  const isMobile = useIsMobile();
+
   useEffect(() => {
-    // Update the Tawk.to script with the correct ID
-    const scripts = document.getElementsByTagName('script');
-    for (let i = 0; i < scripts.length; i++) {
-      if (scripts[i].src.includes('embed.tawk.to')) {
-        const newSrc = `https://embed.tawk.to/${tawkId}/default`;
-        if (scripts[i].src !== newSrc) {
-          scripts[i].src = newSrc;
-        }
-        break;
+    // Create a new variable to track if the script exists
+    let tawkScript = document.querySelector('script[src*="embed.tawk.to"]');
+    
+    // If not found, create it
+    if (!tawkScript) {
+      tawkScript = document.createElement('script');
+      tawkScript.setAttribute('async', 'true');
+      tawkScript.setAttribute('crossorigin', '*');
+      tawkScript.setAttribute('src', `https://embed.tawk.to/${tawkId}/default`);
+      document.body.appendChild(tawkScript);
+      
+      console.log('TawkTo script added to the page');
+    } else {
+      // Update the script with the correct ID if it exists
+      const currentSrc = tawkScript.getAttribute('src');
+      const newSrc = `https://embed.tawk.to/${tawkId}/default`;
+      if (currentSrc !== newSrc) {
+        tawkScript.setAttribute('src', newSrc);
+        console.log('TawkTo script source updated');
       }
     }
 
-    // Configure Tawk.to when loaded
-    if (window.Tawk_API) {
-      window.Tawk_API.onLoaded = () => {
-        console.log('Tawk.to widget loaded');
+    // Configure the widget for mobile and desktop
+    const configureTawk = () => {
+      if (window.Tawk_API) {
+        console.log('Tawk.to API found, configuring...');
         
-        // Auto-hide widget if enabled
-        if (autoHide) {
-          window.Tawk_API.hideWidget?.();
-        }
-        
-        // Set visitor attributes if provided
-        if (userInfo && Object.keys(userInfo).length > 0) {
-          window.Tawk_API.setAttributes?.(userInfo, () => {
-            console.log('User info set in Tawk.to');
-          });
-        }
-      };
-    }
+        window.Tawk_API.onLoaded = () => {
+          console.log('Tawk.to widget loaded successfully');
+          
+          // Auto-hide widget if enabled
+          if (autoHide) {
+            window.Tawk_API.hideWidget?.();
+          }
+          
+          // Mobile-specific adjustments
+          if (isMobile) {
+            console.log('Mobile device detected, applying mobile-specific settings');
+            
+            // For mobile, we might want to start minimized
+            window.Tawk_API.minimize?.();
+            
+            // Add a small delay to ensure the widget is properly initialized on mobile
+            setTimeout(() => {
+              if (window.Tawk_API.isChatHidden && window.Tawk_API.isChatHidden()) {
+                window.Tawk_API.showWidget?.();
+              }
+            }, 1000);
+          }
+          
+          // Set visitor attributes if provided
+          if (userInfo && Object.keys(userInfo).length > 0) {
+            window.Tawk_API.setAttributes?.(userInfo, () => {
+              console.log('User info set in Tawk.to');
+            });
+          }
+        };
+      } else {
+        // If Tawk_API is not available yet, retry after a delay
+        console.log('Tawk_API not yet available, retrying...');
+        setTimeout(configureTawk, 1000);
+      }
+    };
+
+    // Initial configuration attempt
+    configureTawk();
     
     return () => {
       // Clean up if needed
@@ -72,7 +115,7 @@ const TawkToChat: React.FC<TawkToChatProps> = ({
         window.Tawk_API.hideWidget();
       }
     };
-  }, [tawkId, autoHide, userInfo]);
+  }, [tawkId, autoHide, userInfo, isMobile]);
 
   // This component doesn't render anything visible
   return null;

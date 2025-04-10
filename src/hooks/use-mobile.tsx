@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
@@ -6,14 +7,43 @@ export function useIsMobile() {
   const [isMobile, setIsMobile] = React.useState<boolean | undefined>(undefined)
 
   React.useEffect(() => {
-    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`)
-    const onChange = () => {
-      setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    }
-    mql.addEventListener("change", onChange)
-    setIsMobile(window.innerWidth < MOBILE_BREAKPOINT)
-    return () => mql.removeEventListener("change", onChange)
-  }, [])
+    // Function to check if the device is mobile
+    const checkMobile = () => {
+      const mobileCheck = window.innerWidth < MOBILE_BREAKPOINT;
+      setIsMobile(mobileCheck);
+      console.log(`Device detected as: ${mobileCheck ? 'mobile' : 'desktop'}`);
+    };
 
-  return !!isMobile
+    // Initial check
+    checkMobile();
+    
+    // Add event listener for resize
+    window.addEventListener('resize', checkMobile);
+    
+    // Create a media query list and add listener
+    const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    const onChange = () => {
+      checkMobile();
+    };
+    
+    // Different browsers support different event listener methods
+    if (mql.addEventListener) {
+      mql.addEventListener("change", onChange);
+    } else if (mql.addListener) {
+      // For older browsers
+      mql.addListener(onChange);
+    }
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+      if (mql.removeEventListener) {
+        mql.removeEventListener("change", onChange);
+      } else if (mql.removeListener) {
+        mql.removeListener(onChange);
+      }
+    };
+  }, []);
+
+  // Return true if definitely mobile, false otherwise
+  return !!isMobile;
 }
