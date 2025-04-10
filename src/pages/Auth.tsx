@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, User, Mail, Lock, Facebook, Instagram, Google } from 'lucide-react';
+import { ShoppingCart, User, Mail, Lock, Facebook, Instagram } from 'lucide-react';
 import { 
   Card,
   CardContent,
@@ -73,6 +73,24 @@ const Auth = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Custom Google icon since it's not available in lucide-react
+  const GoogleIcon = () => (
+    <svg 
+      xmlns="http://www.w3.org/2000/svg" 
+      className="h-4 w-4 mr-2" 
+      viewBox="0 0 24 24" 
+      fill="none" 
+      stroke="currentColor" 
+      strokeWidth="2" 
+      strokeLinecap="round" 
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="10" />
+      <path d="M8 12 h8" />
+      <path d="M12 8 v8" />
+    </svg>
+  );
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-background/90 p-4">
@@ -155,7 +173,7 @@ const Auth = () => {
                     disabled={isSubmitting}
                     className="flex items-center justify-center"
                   >
-                    <Google className="h-4 w-4 mr-2" />
+                    <GoogleIcon />
                     {!isMobile && 'Google'}
                   </Button>
                   
@@ -243,7 +261,7 @@ const Auth = () => {
                     disabled={isSubmitting}
                     className="flex items-center justify-center"
                   >
-                    <Google className="h-4 w-4 mr-2" />
+                    <GoogleIcon />
                     {!isMobile && 'Google'}
                   </Button>
                   
