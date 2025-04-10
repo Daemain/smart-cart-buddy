@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import ProtectedRoute from "./components/ProtectedRoute";
 import TawkToChat from "./components/TawkToChat";
 import PaymentSuccess from "./components/PaymentSuccess";
+import AuthRedirect from "./components/AuthRedirect";
 
 const queryClient = new QueryClient();
 
@@ -23,6 +24,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthRedirect />} />
             <Route 
               path="/" 
               element={

@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useIsMobile } from '@/hooks/use-mobile';
+import AuthOverlay from '@/components/AuthOverlay';
 
 const Auth = () => {
   const { user, isLoading, signIn, signUp, signInWithGoogle, signInWithFacebook, signInWithInstagram } = useAuth();
@@ -23,6 +24,7 @@ const Auth = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAuthOverlay, setShowAuthOverlay] = useState(false);
   const isMobile = useIsMobile();
 
   useEffect(() => {
@@ -71,6 +73,8 @@ const Auth = () => {
 
   const handleSocialLogin = async (provider: 'google' | 'facebook' | 'instagram') => {
     setIsSubmitting(true);
+    setShowAuthOverlay(true);
+    
     try {
       console.log(`Starting ${provider} sign in...`);
       
@@ -86,7 +90,7 @@ const Auth = () => {
       // No navigation needed here as OAuth redirects happen automatically
     } catch (error) {
       console.error(`${provider} sign in error:`, error);
-    } finally {
+      setShowAuthOverlay(false);
       setIsSubmitting(false);
     }
   };
@@ -108,6 +112,8 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-background/90 p-4">
+      <AuthOverlay isOpen={showAuthOverlay} />
+      
       <div className="flex items-center mb-8">
         <div className="bg-primary rounded-full p-2 text-primary-foreground mr-2">
           <ShoppingCart className="h-6 w-6" />

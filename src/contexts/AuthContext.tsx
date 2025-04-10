@@ -160,8 +160,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Starting Google login process...");
       
-      // Get the current URL's origin (e.g., http://localhost:3000)
-      const redirectTo = window.location.origin + '/auth';
+      // Use the new callback route
+      const redirectTo = window.location.origin + '/auth/callback';
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -189,8 +189,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithFacebook = async () => {
     try {
-      // Get the current URL's origin
-      const redirectTo = window.location.origin + '/auth';
+      // Use the new callback route
+      const redirectTo = window.location.origin + '/auth/callback';
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
@@ -214,8 +214,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithInstagram = async () => {
     try {
-      // Get the current URL's origin
-      const redirectTo = window.location.origin + '/auth';
+      // Use the new callback route
+      const redirectTo = window.location.origin + '/auth/callback';
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
