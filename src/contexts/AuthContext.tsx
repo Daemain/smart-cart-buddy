@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -158,13 +159,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signInWithGoogle = async () => {
     try {
       console.log("Starting Google login process...");
-      
-      console.log("Current URL:", window.location.href);
-      console.log("Origin:", window.location.origin);
+      console.log("Site URL:", "https://preview--smart-cart-buddy.lovable.app");
+      console.log("Redirect URL:", "https://preview--smart-cart-buddy.lovable.app/auth");
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          redirectTo: "https://preview--smart-cart-buddy.lovable.app/auth",
           queryParams: {
             prompt: 'select_account'
           }
@@ -192,6 +193,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
+        options: {
+          redirectTo: "https://preview--smart-cart-buddy.lovable.app/auth"
+        }
       });
       
       if (error) {
@@ -213,6 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         provider: 'azure',
         options: {
           scopes: 'instagram',
+          redirectTo: "https://preview--smart-cart-buddy.lovable.app/auth"
         }
       });
       
