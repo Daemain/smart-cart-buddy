@@ -160,15 +160,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log("Starting Google login process...");
       
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          queryParams: {
-            prompt: 'select_account'
-          }
-        }
+        provider: 'google'
       });
       
-      console.log("Supabase OAuth response:", data);
+      console.log("Google OAuth initiated, data:", data);
       
       if (error) {
         console.error("Google OAuth error:", error);
