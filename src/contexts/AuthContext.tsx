@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -159,8 +160,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Starting Google login process...");
       
+      // Get the current URL's origin (e.g., http://localhost:3000)
+      const redirectTo = window.location.origin + '/auth';
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google'
+        provider: 'google',
+        options: {
+          redirectTo: redirectTo
+        }
       });
       
       console.log("Google OAuth initiated, data:", data);
@@ -182,8 +189,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithFacebook = async () => {
     try {
+      // Get the current URL's origin
+      const redirectTo = window.location.origin + '/auth';
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
+        options: {
+          redirectTo: redirectTo
+        }
       });
       
       if (error) {
@@ -201,10 +214,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithInstagram = async () => {
     try {
+      // Get the current URL's origin
+      const redirectTo = window.location.origin + '/auth';
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
           scopes: 'instagram',
+          redirectTo: redirectTo
         }
       });
       
