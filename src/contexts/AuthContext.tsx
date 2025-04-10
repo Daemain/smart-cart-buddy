@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -160,29 +159,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log("Starting Google login process...");
       
-      // Debug the current URL and origin
       console.log("Current URL:", window.location.href);
       console.log("Origin:", window.location.origin);
-      
-      // Make sure we're using the fully qualified callback URL
-      const supabaseAuthCallbackUrl = `${window.location.origin}/auth`;
-      console.log("Google redirect URL:", supabaseAuthCallbackUrl);
-      
-      // Log Supabase project URL
-      console.log("Supabase project URL:", "https://yrbrflygrfazureptxfo.supabase.co");
       
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: supabaseAuthCallbackUrl,
           queryParams: {
-            // Adding prompt parameter to ensure user can select account
             prompt: 'select_account'
           }
         }
       });
       
-      // Log the data returned by Supabase
       console.log("Supabase OAuth response:", data);
       
       if (error) {
@@ -202,14 +190,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithFacebook = async () => {
     try {
-      const redirectUrl = `${window.location.origin}/auth`;
-      console.log("Facebook redirect URL:", redirectUrl);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
-        options: {
-          redirectTo: redirectUrl
-        }
       });
       
       if (error) {
@@ -227,14 +209,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithInstagram = async () => {
     try {
-      const redirectUrl = `${window.location.origin}/auth`;
-      console.log("Instagram redirect URL:", redirectUrl);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'azure',
         options: {
           scopes: 'instagram',
-          redirectTo: redirectUrl
         }
       });
       
