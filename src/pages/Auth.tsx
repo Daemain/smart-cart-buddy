@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ShoppingCart, User, Mail, Lock } from 'lucide-react';
+import { ShoppingCart, User, Mail, Lock, Facebook, Instagram, Google } from 'lucide-react';
 import { 
   Card,
   CardContent,
@@ -15,13 +15,15 @@ import {
   CardTitle
 } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const Auth = () => {
-  const { user, isLoading, signIn, signUp } = useAuth();
+  const { user, isLoading, signIn, signUp, signInWithGoogle, signInWithFacebook, signInWithInstagram } = useAuth();
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMobile = useIsMobile();
 
   // Redirect if already logged in
   if (!isLoading && user) {
@@ -49,6 +51,24 @@ const Auth = () => {
       // We don't navigate here because the user needs to verify their email
     } catch (error) {
       console.error('Sign up error:', error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSocialLogin = async (provider: 'google' | 'facebook' | 'instagram') => {
+    setIsSubmitting(true);
+    try {
+      if (provider === 'google') {
+        await signInWithGoogle();
+      } else if (provider === 'facebook') {
+        await signInWithFacebook();
+      } else if (provider === 'instagram') {
+        await signInWithInstagram();
+      }
+      // No navigation needed here as OAuth redirects happen automatically
+    } catch (error) {
+      console.error(`${provider} sign in error:`, error);
     } finally {
       setIsSubmitting(false);
     }
@@ -113,7 +133,7 @@ const Auth = () => {
                 </div>
               </CardContent>
 
-              <CardFooter>
+              <CardFooter className="flex-col space-y-4">
                 <Button 
                   type="submit" 
                   className="w-full" 
@@ -121,6 +141,46 @@ const Auth = () => {
                 >
                   {isSubmitting ? 'Signing in...' : 'Sign In'}
                 </Button>
+                
+                <div className="relative w-full flex items-center justify-center">
+                  <hr className="w-full border-t border-gray-300" />
+                  <span className="absolute bg-background px-2 text-xs text-gray-500">OR</span>
+                </div>
+                
+                <div className={`grid ${isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-4'} w-full`}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleSocialLogin('google')}
+                    disabled={isSubmitting}
+                    className="flex items-center justify-center"
+                  >
+                    <Google className="h-4 w-4 mr-2" />
+                    {!isMobile && 'Google'}
+                  </Button>
+                  
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleSocialLogin('facebook')}
+                    disabled={isSubmitting}
+                    className="flex items-center justify-center"
+                  >
+                    <Facebook className="h-4 w-4 mr-2" />
+                    {!isMobile && 'Facebook'}
+                  </Button>
+                  
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleSocialLogin('instagram')}
+                    disabled={isSubmitting}
+                    className="flex items-center justify-center"
+                  >
+                    <Instagram className="h-4 w-4 mr-2" />
+                    {!isMobile && 'Instagram'}
+                  </Button>
+                </div>
               </CardFooter>
             </form>
           </TabsContent>
@@ -161,7 +221,7 @@ const Auth = () => {
                 </div>
               </CardContent>
 
-              <CardFooter>
+              <CardFooter className="flex-col space-y-4">
                 <Button 
                   type="submit" 
                   className="w-full"
@@ -169,6 +229,46 @@ const Auth = () => {
                 >
                   {isSubmitting ? 'Creating account...' : 'Create Account'}
                 </Button>
+                
+                <div className="relative w-full flex items-center justify-center">
+                  <hr className="w-full border-t border-gray-300" />
+                  <span className="absolute bg-background px-2 text-xs text-gray-500">OR</span>
+                </div>
+                
+                <div className={`grid ${isMobile ? 'grid-cols-1 gap-2' : 'grid-cols-3 gap-4'} w-full`}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleSocialLogin('google')}
+                    disabled={isSubmitting}
+                    className="flex items-center justify-center"
+                  >
+                    <Google className="h-4 w-4 mr-2" />
+                    {!isMobile && 'Google'}
+                  </Button>
+                  
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleSocialLogin('facebook')}
+                    disabled={isSubmitting}
+                    className="flex items-center justify-center"
+                  >
+                    <Facebook className="h-4 w-4 mr-2" />
+                    {!isMobile && 'Facebook'}
+                  </Button>
+                  
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => handleSocialLogin('instagram')}
+                    disabled={isSubmitting}
+                    className="flex items-center justify-center"
+                  >
+                    <Instagram className="h-4 w-4 mr-2" />
+                    {!isMobile && 'Instagram'}
+                  </Button>
+                </div>
               </CardFooter>
             </form>
           </TabsContent>

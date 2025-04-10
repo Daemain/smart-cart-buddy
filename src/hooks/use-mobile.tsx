@@ -14,7 +14,7 @@ export function useIsMobile() {
       console.log(`Device detected as: ${mobileCheck ? 'mobile' : 'desktop'}`);
     };
 
-    // Initial check
+    // Initial check - run immediately to avoid flash of incorrect UI
     checkMobile();
     
     // Add event listener for resize
@@ -22,6 +22,8 @@ export function useIsMobile() {
     
     // Create a media query list and add listener
     const mql = window.matchMedia(`(max-width: ${MOBILE_BREAKPOINT - 1}px)`);
+    
+    // Use a standardized function for the event listener
     const onChange = () => {
       checkMobile();
     };
@@ -45,5 +47,6 @@ export function useIsMobile() {
   }, []);
 
   // Return true if definitely mobile, false otherwise
-  return !!isMobile;
+  // This ensures we have a boolean value even before the effect runs
+  return typeof isMobile === 'boolean' ? isMobile : window.innerWidth < MOBILE_BREAKPOINT;
 }
