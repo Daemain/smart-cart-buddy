@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,6 +32,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.id);
+        
         setAuthState(prev => ({
           ...prev,
           session,
@@ -39,7 +42,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // If user signs in or signs out, update accordingly
         if (event === 'SIGNED_IN' && session?.user) {
-          fetchProfile(session.user.id);
+          // Use setTimeout to prevent potential deadlocks
+          setTimeout(() => {
+            fetchProfile(session.user.id);
+          }, 0);
         } else if (event === 'SIGNED_OUT') {
           setProfile(null);
         }
@@ -157,14 +163,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signInWithGoogle = async () => {
     try {
+      console.log("Starting Google login process...");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        options: {
+          redirectTo: window.location.origin + '/auth'
+        }
       });
       
       if (error) {
+        console.error("Google OAuth error:", error);
         throw error;
       }
     } catch (error: any) {
+      console.error("Google OAuth catch error:", error);
       toast({
         title: "Google Sign In Failed",
         description: error.message || "An error occurred during Google sign in",
@@ -178,6 +190,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'facebook',
+        options: {
+          redirectTo: window.location.origin + '/auth'
+        }
       });
       
       if (error) {
@@ -199,7 +214,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         provider: 'azure',
         options: {
           scopes: 'instagram',
-        },
+          redirectTo: window.location.origin + '/auth'
+        }
       });
       
       if (error) {
