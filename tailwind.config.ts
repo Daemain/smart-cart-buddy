@@ -129,8 +129,26 @@ export default {
 				'fade-in': 'fade-in 0.3s ease-out',
 				'slide-in': 'slide-in 0.3s ease-out',
 				'float': 'float 3s ease-in-out infinite'
-			}
+			},
+			// Add animation delay utilities
+			animationDelay: {
+				'300': '300ms',
+				'500': '500ms',
+				'700': '700ms',
+				'1000': '1000ms',
+			},
 		}
 	},
-	plugins: [require("tailwindcss-animate")],
+	plugins: [
+		require("tailwindcss-animate"),
+		function({ addUtilities, theme }) {
+			const animationDelays = theme('animationDelay', {});
+			const utilities = Object.entries(animationDelays).map(([key, value]) => {
+				return {
+					[`.animation-delay-${key}`]: { animationDelay: value },
+				};
+			});
+			addUtilities(utilities);
+		}
+	],
 } satisfies Config;

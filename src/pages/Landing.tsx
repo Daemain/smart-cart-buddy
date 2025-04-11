@@ -45,17 +45,34 @@ const Landing = () => {
             </Link>
           </div>
         </div>
-        <div className="md:w-1/2 mt-12 md:mt-0 flex justify-center">
-          <div className="relative w-[380px] h-[380px] bg-app-light-blue/60 rounded-full flex items-center justify-center">
+        <div className="md:w-1/2 mt-12 md:mt-0 flex justify-center relative">
+          {/* Main circular background */}
+          <div className="relative w-[450px] h-[450px] bg-app-light-blue/60 rounded-full flex items-center justify-center">
+            {/* Main shopping cart image */}
             <img 
               src="https://images.unsplash.com/photo-1543168256-418811576931?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
               alt="Smart shopping cart in supermarket" 
-              className="w-[340px] h-auto object-contain rounded-2xl animate-float drop-shadow-xl"
+              className="w-[400px] h-auto object-contain rounded-2xl animate-float drop-shadow-xl"
             />
+            
+            {/* Overlapping grocery bag image */}
+            <img 
+              src="https://images.unsplash.com/photo-1628102491629-778571d893a3?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1980&q=80" 
+              alt="Grocery shopping bag with fresh vegetables" 
+              className="absolute -bottom-16 -left-16 w-[250px] h-[250px] object-cover rounded-2xl rotate-12 animate-float animation-delay-700 drop-shadow-xl border-4 border-white"
+            />
+            
             <div className="absolute -right-10 top-10 bg-app-blue text-white text-lg font-bold px-6 py-3 rounded-full rotate-12">
               Special Offer
             </div>
           </div>
+          
+          {/* Floating shopping list image */}
+          <img 
+            src="https://images.unsplash.com/photo-1575378972206-7d01ed528eae?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
+            alt="Digital shopping list app" 
+            className="absolute -right-8 -bottom-10 w-[200px] h-[250px] object-cover rounded-2xl -rotate-6 animate-float animation-delay-1000 drop-shadow-xl border-4 border-white" 
+          />
         </div>
       </section>
 
