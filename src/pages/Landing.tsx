@@ -48,9 +48,9 @@ const Landing = () => {
         <div className="md:w-1/2 mt-12 md:mt-0 flex justify-center">
           <div className="relative w-[350px] h-[350px] bg-app-light-blue/60 rounded-full flex items-center justify-center">
             <img 
-              src="/placeholder.svg" 
+              src="/lovable-uploads/7783e7c7-0d8d-4f6f-b2ac-31dab2d6be43.png" 
               alt="Smart Cart Buddy App" 
-              className="w-[300px] h-auto object-contain animate-float"
+              className="w-[320px] h-auto object-contain animate-float drop-shadow-xl"
             />
             <div className="absolute -right-10 top-10 bg-app-blue text-white text-lg font-bold px-6 py-3 rounded-full rotate-12">
               Special Offer
