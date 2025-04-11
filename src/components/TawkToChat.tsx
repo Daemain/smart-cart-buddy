@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -63,38 +64,34 @@ const TawkToChat: React.FC<TawkToChatProps> = ({
       }
     }
 
+    // Function to immediately hide the widget, called repeatedly to ensure it stays hidden
+    const forceHideWidget = () => {
+      if (window.Tawk_API && window.Tawk_API.hideWidget) {
+        window.Tawk_API.hideWidget();
+      }
+    };
+
     // Configure the widget for mobile and desktop
     const configureTawk = () => {
       if (window.Tawk_API) {
         console.log('Tawk.to API found, configuring...');
         
+        // Immediately try to hide it
+        forceHideWidget();
+        
         window.Tawk_API.onLoaded = () => {
           console.log('Tawk.to widget loaded successfully');
           
-          // First hide the widget completely
-          window.Tawk_API.hideWidget?.();
+          // Always hide the widget completely on initial load
+          forceHideWidget();
           
-          // If autoHide is set to false, show the widget but keep it minimized
+          // Only show if explicitly requested (not auto-hide)
           if (!autoHide) {
+            // Add a significant delay to ensure widget is fully initialized before showing
             setTimeout(() => {
               window.Tawk_API.showWidget?.();
               window.Tawk_API.minimize?.();
-            }, 500);
-          }
-          
-          // Mobile-specific adjustments
-          if (isMobile) {
-            console.log('Mobile device detected, applying mobile-specific settings');
-            
-            // For mobile, ensure we're starting with the widget hidden
-            if (!autoHide) {
-              setTimeout(() => {
-                if (window.Tawk_API.isChatHidden && window.Tawk_API.isChatHidden()) {
-                  window.Tawk_API.showWidget?.();
-                  window.Tawk_API.minimize?.();
-                }
-              }, 1000);
-            }
+            }, 1500);
           }
           
           // Set visitor attributes if provided
@@ -114,11 +111,16 @@ const TawkToChat: React.FC<TawkToChatProps> = ({
     // Initial configuration attempt
     configureTawk();
     
+    // Apply multiple hide attempts with increasing delays to catch any race conditions
+    // This is especially helpful for mobile where timing can be inconsistent
+    const hideAttempts = [100, 500, 1000, 2000, 3000];
+    hideAttempts.forEach(delay => {
+      setTimeout(forceHideWidget, delay);
+    });
+    
     return () => {
-      // Clean up if needed
-      if (window.Tawk_API && window.Tawk_API.hideWidget) {
-        window.Tawk_API.hideWidget();
-      }
+      // Clean up
+      forceHideWidget();
     };
   }, [tawkId, autoHide, userInfo, isMobile]);
 
