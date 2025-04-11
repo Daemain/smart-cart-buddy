@@ -46,11 +46,11 @@ const Landing = () => {
           </div>
         </div>
         <div className="md:w-1/2 mt-12 md:mt-0 flex justify-center">
-          <div className="relative w-[350px] h-[350px] bg-app-light-blue/60 rounded-full flex items-center justify-center">
+          <div className="relative w-[380px] h-[380px] bg-app-light-blue/60 rounded-full flex items-center justify-center">
             <img 
-              src="/lovable-uploads/e6845581-ae0c-4c52-b146-c5f0934bc73e.png" 
-              alt="Smart Cart Buddy App" 
-              className="w-[320px] h-auto object-contain animate-float drop-shadow-xl"
+              src="https://images.unsplash.com/photo-1543168256-418811576931?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80" 
+              alt="Smart shopping cart in supermarket" 
+              className="w-[340px] h-auto object-contain rounded-2xl animate-float drop-shadow-xl"
             />
             <div className="absolute -right-10 top-10 bg-app-blue text-white text-lg font-bold px-6 py-3 rounded-full rotate-12">
               Special Offer
