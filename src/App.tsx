@@ -8,6 +8,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
 import ProtectedRoute from "./components/ProtectedRoute";
 import TawkToChat from "./components/TawkToChat";
 import PaymentSuccess from "./components/PaymentSuccess";
@@ -23,10 +24,11 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
+            <Route path="/" element={<Landing />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthRedirect />} />
             <Route 
-              path="/" 
+              path="/app" 
               element={
                 <ProtectedRoute>
                   <Index />
