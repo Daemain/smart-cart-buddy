@@ -49,7 +49,7 @@ const App = () => (
         </BrowserRouter>
         <TawkToChat 
           tawkId="67f6c249341807190ee14ba6/1ioduds7c" 
-          autoHide={false}
+          autoHide={true}
         />
       </AuthProvider>
     </TooltipProvider>

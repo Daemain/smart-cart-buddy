@@ -35,7 +35,7 @@ interface TawkToChatProps {
 
 const TawkToChat: React.FC<TawkToChatProps> = ({ 
   tawkId = '67f6c249341807190ee14ba6/1ioduds7c', 
-  autoHide = false,
+  autoHide = true,  // Changed default to true to hide by default
   userInfo 
 }) => {
   const isMobile = useIsMobile();
@@ -71,28 +71,30 @@ const TawkToChat: React.FC<TawkToChatProps> = ({
         window.Tawk_API.onLoaded = () => {
           console.log('Tawk.to widget loaded successfully');
           
-          // Always keep the widget minimized by default
-          window.Tawk_API.minimize?.();
+          // First hide the widget completely
+          window.Tawk_API.hideWidget?.();
           
-          // If autoHide is enabled, completely hide the widget
-          if (autoHide) {
-            window.Tawk_API.hideWidget?.();
+          // If autoHide is set to false, show the widget but keep it minimized
+          if (!autoHide) {
+            setTimeout(() => {
+              window.Tawk_API.showWidget?.();
+              window.Tawk_API.minimize?.();
+            }, 500);
           }
           
           // Mobile-specific adjustments
           if (isMobile) {
             console.log('Mobile device detected, applying mobile-specific settings');
             
-            // For mobile, ensure we're starting minimized
-            window.Tawk_API.minimize?.();
-            
-            // Add a small delay to ensure the widget is properly initialized on mobile
-            setTimeout(() => {
-              if (window.Tawk_API.isChatHidden && window.Tawk_API.isChatHidden()) {
-                window.Tawk_API.showWidget?.();
-                window.Tawk_API.minimize?.(); // Ensure it's minimized
-              }
-            }, 1000);
+            // For mobile, ensure we're starting with the widget hidden
+            if (!autoHide) {
+              setTimeout(() => {
+                if (window.Tawk_API.isChatHidden && window.Tawk_API.isChatHidden()) {
+                  window.Tawk_API.showWidget?.();
+                  window.Tawk_API.minimize?.();
+                }
+              }, 1000);
+            }
           }
           
           // Set visitor attributes if provided
