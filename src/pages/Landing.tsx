@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { ArrowRight, ShoppingCart, MessageCircle, Menu, X, Mail } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -54,24 +55,26 @@ const Landing = () => {
         </button>
       </nav>
       
-      <div className="md:hidden absolute top-20 left-0 right-0 bg-white shadow-lg z-40 p-4 animate-fade-in">
-        <div className="flex flex-col gap-3">
-          <Button 
-            variant="outline" 
-            className="w-full border-app-blue text-app-blue hover:bg-app-blue/10 rounded-full"
-            onClick={handleSupportClick}
-          >
-            <MessageCircle className="mr-2 h-4 w-4" />
-            Support
-          </Button>
-          <Link to={getStartedPath} className="w-full" onClick={() => setMobileMenuOpen(false)}>
-            <Button className="w-full bg-app-blue hover:bg-app-blue/90 text-white rounded-full">
-              {user ? 'Go to App' : 'Get Started'}
-              <ArrowRight className="ml-2 h-4 w-4" />
+      {mobileMenuOpen && (
+        <div className="md:hidden absolute top-20 left-0 right-0 bg-white shadow-lg z-40 p-4 animate-fade-in">
+          <div className="flex flex-col gap-3">
+            <Button 
+              variant="outline" 
+              className="w-full border-app-blue text-app-blue hover:bg-app-blue/10 rounded-full"
+              onClick={handleSupportClick}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Support
             </Button>
-          </Link>
+            <Link to={getStartedPath} className="w-full" onClick={() => setMobileMenuOpen(false)}>
+              <Button className="w-full bg-app-blue hover:bg-app-blue/90 text-white rounded-full">
+                {user ? 'Go to App' : 'Get Started'}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      )}
 
       <section className="container mx-auto px-4 py-12 md:py-20 flex-1 flex flex-col md:flex-row items-center justify-center mt-4 md:mt-0">
         <div className="md:w-1/2 space-y-5 md:space-y-6 text-center md:text-left">
