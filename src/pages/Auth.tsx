@@ -40,9 +40,9 @@ const Auth = () => {
     console.log('Auth page loaded, URL:', window.location.href);
   }, []);
 
-  // Redirect if already logged in
+  // Redirect if already logged in - now directs to /app instead of /
   if (!isLoading && user) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/app" replace />;
   }
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -50,7 +50,8 @@ const Auth = () => {
     setIsSubmitting(true);
     try {
       await signIn(email, password);
-      navigate('/');
+      // Redirect to app dashboard instead of home
+      navigate('/app');
     } catch (error) {
       console.error('Sign in error:', error);
     } finally {

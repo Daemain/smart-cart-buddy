@@ -12,8 +12,8 @@ const AuthRedirect: React.FC = () => {
       const { data, error } = await supabase.auth.getSession();
       
       if (data.session) {
-        // If session exists, redirect to home page
-        navigate('/', { replace: true });
+        // If session exists, redirect to app dashboard instead of home page
+        navigate('/app', { replace: true });
       } else if (error) {
         console.error('Auth redirect error:', error);
         navigate('/auth', { replace: true });

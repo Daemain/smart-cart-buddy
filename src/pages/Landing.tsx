@@ -1,10 +1,15 @@
-
 import React from 'react';
 import { ArrowRight, ShoppingCart } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 
 const Landing = () => {
+  const { user } = useAuth();
+  
+  // Determine where to direct users based on auth status
+  const getStartedPath = user ? '/app' : '/auth';
+
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-app-light-blue to-white flex flex-col">
       {/* Navigation */}
@@ -13,9 +18,9 @@ const Landing = () => {
           <ShoppingCart className="h-8 w-8 text-app-blue" />
           <span className="text-xl font-bold text-app-blue">Smart Cart Buddy</span>
         </div>
-        <Link to="/auth">
+        <Link to={getStartedPath}>
           <Button className="bg-app-blue hover:bg-app-blue/90 text-white rounded-full">
-            Get Started
+            {user ? 'Go to App' : 'Get Started'}
             <ArrowRight className="ml-2 h-4 w-4" />
           </Button>
         </Link>
@@ -35,11 +40,11 @@ const Landing = () => {
             Our app makes grocery shopping and meal planning easier than ever.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Link to="/auth">
+            <Link to={getStartedPath}>
               <Button 
                 className="bg-app-blue hover:bg-app-blue/90 text-white px-8 py-6 rounded-xl text-lg w-full"
               >
-                Try for Free
+                {user ? 'Go to App' : 'Try for Free'}
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
@@ -119,11 +124,11 @@ const Landing = () => {
           <p className="text-xl mb-8 max-w-2xl mx-auto">
             Join thousands of happy users who have transformed their grocery shopping experience.
           </p>
-          <Link to="/auth">
+          <Link to={getStartedPath}>
             <Button 
               className="bg-white text-app-blue hover:bg-gray-100 px-8 py-6 rounded-xl text-lg font-semibold"
             >
-              Get Started Now
+              {user ? 'Go to App' : 'Get Started Now'}
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
