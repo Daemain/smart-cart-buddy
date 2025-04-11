@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ArrowRight, ShoppingCart, MessageCircle, Menu, X } from 'lucide-react';
+import { ArrowRight, ShoppingCart, MessageCircle, Menu, X, Mail } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -210,14 +210,28 @@ const Landing = () => {
           <p className="text-gray-400 mb-4">
             © {new Date().getFullYear()} Smart Cart Buddy. All rights reserved.
           </p>
-          <Button 
-            variant="ghost" 
-            className="text-gray-400 hover:text-white hover:bg-transparent text-sm"
-            onClick={handleSupportClick}
-          >
-            <MessageCircle className="mr-2 h-4 w-4" />
-            Need help? Chat with support
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button 
+              variant="ghost" 
+              className="text-gray-400 hover:text-white hover:bg-transparent text-sm"
+              onClick={handleSupportClick}
+            >
+              <MessageCircle className="mr-2 h-4 w-4" />
+              Need help? Chat with support
+            </Button>
+            <a 
+              href="mailto:Babatundeadeoyeak@gmail.com" 
+              className="flex items-center"
+            >
+              <Button 
+                variant="ghost" 
+                className="text-gray-400 hover:text-white hover:bg-transparent text-sm"
+              >
+                <Mail className="mr-2 h-4 w-4" />
+                Contact Us
+              </Button>
+            </a>
+          </div>
         </div>
       </footer>
     </div>
