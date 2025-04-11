@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { ArrowRight, CheckCircle2, ShoppingCart, ListChecks, Recipe } from 'lucide-react';
+import { ArrowRight, CheckCircle2, ShoppingCart, ListChecks, Utensils } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Link } from 'react-router-dom';
@@ -85,7 +85,7 @@ const Landing = () => {
                 description: "Create, organize, and share your grocery lists effortlessly"
               },
               {
-                icon: <Recipe className="h-12 w-12 text-app-green" />,
+                icon: <Utensils className="h-12 w-12 text-app-green" />,
                 title: "Recipe Integration",
                 description: "Extract ingredients from any recipe with one click"
               },
