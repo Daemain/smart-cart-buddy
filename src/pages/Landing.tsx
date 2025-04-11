@@ -66,13 +66,6 @@ const Landing = () => {
               Special Offer
             </div>
           </div>
-          
-          {/* Floating shopping list image - Using the uploaded image */}
-          <img 
-            src="/lovable-uploads/0c95cd37-5381-4c77-88a9-0e4a8dc1aa09.png" 
-            alt="Digital shopping list app" 
-            className="absolute -right-8 -bottom-10 w-[200px] h-[250px] object-cover rounded-2xl -rotate-6 animate-float animation-delay-1000 drop-shadow-xl border-4 border-white" 
-          />
         </div>
       </section>
 
