@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { useIsMobile } from '@/hooks/use-mobile';
 
@@ -72,7 +71,10 @@ const TawkToChat: React.FC<TawkToChatProps> = ({
         window.Tawk_API.onLoaded = () => {
           console.log('Tawk.to widget loaded successfully');
           
-          // Auto-hide widget if enabled
+          // Always keep the widget minimized by default
+          window.Tawk_API.minimize?.();
+          
+          // If autoHide is enabled, completely hide the widget
           if (autoHide) {
             window.Tawk_API.hideWidget?.();
           }
@@ -81,13 +83,14 @@ const TawkToChat: React.FC<TawkToChatProps> = ({
           if (isMobile) {
             console.log('Mobile device detected, applying mobile-specific settings');
             
-            // For mobile, we might want to start minimized
+            // For mobile, ensure we're starting minimized
             window.Tawk_API.minimize?.();
             
             // Add a small delay to ensure the widget is properly initialized on mobile
             setTimeout(() => {
               if (window.Tawk_API.isChatHidden && window.Tawk_API.isChatHidden()) {
                 window.Tawk_API.showWidget?.();
+                window.Tawk_API.minimize?.(); // Ensure it's minimized
               }
             }, 1000);
           }
