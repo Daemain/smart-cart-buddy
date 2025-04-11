@@ -34,6 +34,19 @@ interface TawkToChatProps {
   };
 }
 
+// Create a function to show the widget that can be called from anywhere
+export const showTawkToChat = () => {
+  if (window.Tawk_API && window.Tawk_API.showWidget) {
+    window.Tawk_API.showWidget();
+    setTimeout(() => {
+      window.Tawk_API.maximize?.();
+    }, 100);
+    console.log('Tawk.to widget shown and maximized');
+  } else {
+    console.log('Tawk_API not available yet, cannot show widget');
+  }
+};
+
 const TawkToChat: React.FC<TawkToChatProps> = ({ 
   tawkId = '67f6c249341807190ee14ba6/1ioduds7c', 
   autoHide = true,  // Changed default to true to hide by default

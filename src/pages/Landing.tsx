@@ -1,14 +1,20 @@
+
 import React from 'react';
-import { ArrowRight, ShoppingCart } from 'lucide-react';
+import { ArrowRight, ShoppingCart, MessageCircle } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
+import { showTawkToChat } from '@/components/TawkToChat';
 
 const Landing = () => {
   const { user } = useAuth();
   
   // Determine where to direct users based on auth status
   const getStartedPath = user ? '/app' : '/auth';
+
+  const handleSupportClick = () => {
+    showTawkToChat();
+  };
 
   return (
     <div className="min-h-screen w-full bg-gradient-to-br from-app-light-blue to-white flex flex-col">
@@ -18,12 +24,22 @@ const Landing = () => {
           <ShoppingCart className="h-8 w-8 text-app-blue" />
           <span className="text-xl font-bold text-app-blue">Smart Cart Buddy</span>
         </div>
-        <Link to={getStartedPath}>
-          <Button className="bg-app-blue hover:bg-app-blue/90 text-white rounded-full">
-            {user ? 'Go to App' : 'Get Started'}
-            <ArrowRight className="ml-2 h-4 w-4" />
+        <div className="flex items-center gap-3">
+          <Button 
+            variant="outline" 
+            className="border-app-blue text-app-blue hover:bg-app-blue/10 rounded-full"
+            onClick={handleSupportClick}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Support
           </Button>
-        </Link>
+          <Link to={getStartedPath}>
+            <Button className="bg-app-blue hover:bg-app-blue/90 text-white rounded-full">
+              {user ? 'Go to App' : 'Get Started'}
+              <ArrowRight className="ml-2 h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
       </nav>
 
       {/* Hero Section */}
@@ -124,14 +140,24 @@ const Landing = () => {
           <p className="text-xl mb-8 max-w-2xl mx-auto">
             Join thousands of happy users who have transformed their grocery shopping experience.
           </p>
-          <Link to={getStartedPath}>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
-              className="bg-white text-app-blue hover:bg-gray-100 px-8 py-6 rounded-xl text-lg font-semibold"
+              variant="outline" 
+              className="border-white text-white hover:bg-white/10 px-8 py-6 rounded-xl text-lg"
+              onClick={handleSupportClick}
             >
-              {user ? 'Go to App' : 'Get Started Now'}
-              <ArrowRight className="ml-2 h-5 w-5" />
+              <MessageCircle className="mr-2 h-5 w-5" />
+              Contact Support
             </Button>
-          </Link>
+            <Link to={getStartedPath}>
+              <Button 
+                className="bg-white text-app-blue hover:bg-gray-100 px-8 py-6 rounded-xl text-lg font-semibold"
+              >
+                {user ? 'Go to App' : 'Get Started Now'}
+                <ArrowRight className="ml-2 h-5 w-5" />
+              </Button>
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -142,9 +168,17 @@ const Landing = () => {
             <ShoppingCart className="h-6 w-6" />
             <span className="text-lg font-bold">Smart Cart Buddy</span>
           </div>
-          <p className="text-gray-400">
+          <p className="text-gray-400 mb-4">
             © {new Date().getFullYear()} Smart Cart Buddy. All rights reserved.
           </p>
+          <Button 
+            variant="ghost" 
+            className="text-gray-400 hover:text-white hover:bg-transparent"
+            onClick={handleSupportClick}
+          >
+            <MessageCircle className="mr-2 h-4 w-4" />
+            Need help? Chat with support
+          </Button>
         </div>
       </footer>
     </div>
