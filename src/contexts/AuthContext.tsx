@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,9 +12,6 @@ interface AuthContextProps {
   signUp: (email: string, password: string) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
-  signInWithGoogle: () => Promise<void>;
-  signInWithFacebook: () => Promise<void>;
-  signInWithInstagram: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextProps | undefined>(undefined);
@@ -156,88 +152,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signInWithGoogle = async () => {
-    try {
-      console.log("Starting Google login process...");
-      
-      // Use the new callback route
-      const redirectTo = window.location.origin + '/auth/callback';
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: redirectTo
-        }
-      });
-      
-      console.log("Google OAuth initiated, data:", data);
-      
-      if (error) {
-        console.error("Google OAuth error:", error);
-        throw error;
-      }
-    } catch (error: any) {
-      console.error("Google OAuth catch error:", error);
-      toast({
-        title: "Google Sign In Failed",
-        description: error.message || "An error occurred during Google sign in",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  };
-
-  const signInWithFacebook = async () => {
-    try {
-      // Use the new callback route
-      const redirectTo = window.location.origin + '/auth/callback';
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'facebook',
-        options: {
-          redirectTo: redirectTo
-        }
-      });
-      
-      if (error) {
-        throw error;
-      }
-    } catch (error: any) {
-      toast({
-        title: "Facebook Sign In Failed",
-        description: error.message || "An error occurred during Facebook sign in",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  };
-
-  const signInWithInstagram = async () => {
-    try {
-      // Use the new callback route
-      const redirectTo = window.location.origin + '/auth/callback';
-      
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'azure',
-        options: {
-          scopes: 'instagram',
-          redirectTo: redirectTo
-        }
-      });
-      
-      if (error) {
-        throw error;
-      }
-    } catch (error: any) {
-      toast({
-        title: "Instagram Sign In Failed",
-        description: error.message || "An error occurred during Instagram sign in",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  };
-
   return (
     <AuthContext.Provider
       value={{
@@ -248,9 +162,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         signIn,
         signOut,
-        signInWithGoogle,
-        signInWithFacebook,
-        signInWithInstagram,
       }}
     >
       {children}
