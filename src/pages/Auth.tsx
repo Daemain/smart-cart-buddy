@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -22,6 +23,7 @@ import AuthOverlay from '@/components/AuthOverlay';
 const Auth = () => {
   const { user, isLoading, signIn, signUp } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -29,7 +31,29 @@ const Auth = () => {
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [isResetting, setIsResetting] = useState(false);
+  const [isNewPasswordForm, setIsNewPasswordForm] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [isSettingNewPassword, setIsSettingNewPassword] = useState(false);
   const isMobile = useIsMobile();
+
+  // Check for password reset flow
+  useEffect(() => {
+    const checkForResetFlow = () => {
+      const searchParams = new URLSearchParams(window.location.search);
+      const type = searchParams.get('type');
+      
+      // If it's a recovery flow, show the new password form
+      if (type === 'recovery') {
+        setIsNewPasswordForm(true);
+        toast({
+          title: "Set new password",
+          description: "Enter your new password below",
+        });
+      }
+    };
+    
+    checkForResetFlow();
+  }, [location]);
 
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
@@ -41,7 +65,7 @@ const Auth = () => {
     }
   }, []);
 
-  if (!isLoading && user) {
+  if (!isLoading && user && !isNewPasswordForm) {
     return <Navigate to="/app" replace />;
   }
 
@@ -83,7 +107,7 @@ const Auth = () => {
       
       toast({
         title: "Reset link sent",
-        description: "Check your email for the password reset link",
+        description: "Check your email for the password reset link from Smart Cart Buddy",
       });
       
       setIsResetPassword(false);
@@ -98,17 +122,88 @@ const Auth = () => {
     }
   };
 
-  useEffect(() => {
-    const searchParams = new URLSearchParams(window.location.search);
-    const type = searchParams.get('type');
-    
-    if (type === 'recovery') {
-      toast({
-        title: "Set new password",
-        description: "Enter your new password below",
+  const handleSetNewPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSettingNewPassword(true);
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
       });
+
+      if (error) throw error;
+
+      toast({
+        title: "Password updated",
+        description: "Your password has been successfully changed.",
+      });
+
+      // Reset the form and redirect to login
+      setIsNewPasswordForm(false);
+      navigate('/auth', { replace: true });
+    } catch (error: any) {
+      toast({
+        title: "Error updating password",
+        description: error.message || "Failed to update password",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSettingNewPassword(false);
     }
-  }, []);
+  };
+
+  if (isNewPasswordForm) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-b from-background to-background/90 p-4">
+        <div className="flex items-center mb-8">
+          <div className="bg-primary rounded-full p-2 text-primary-foreground mr-2">
+            <ShoppingCart className="h-6 w-6" />
+          </div>
+          <h1 className="text-2xl font-bold">Smart Cart Buddy</h1>
+        </div>
+
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="text-xl font-bold text-center">Set New Password</CardTitle>
+            <CardDescription className="text-center">
+              Create a new password for your Smart Cart Buddy account
+            </CardDescription>
+          </CardHeader>
+
+          <form onSubmit={handleSetNewPassword}>
+            <CardContent className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="new-password">New Password</Label>
+                <div className="relative">
+                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="••••••••"
+                    className="pl-10"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+              </div>
+            </CardContent>
+
+            <CardFooter className="flex flex-col gap-4">
+              <Button 
+                type="submit" 
+                className="w-full" 
+                disabled={isSettingNewPassword}
+              >
+                {isSettingNewPassword ? 'Updating password...' : 'Update Password'}
+              </Button>
+            </CardFooter>
+          </form>
+        </Card>
+      </div>
+    );
+  }
 
   if (isResetPassword) {
     return (
