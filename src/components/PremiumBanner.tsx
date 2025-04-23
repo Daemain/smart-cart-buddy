@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Sparkles, X, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -96,7 +95,9 @@ const PremiumBanner: React.FC<PremiumBannerProps> = ({
         <h3 className="font-medium text-sm">Upgrade to Premium</h3>
       </div>
       
-      <p className="text-xs text-muted-foreground mb-2">Unlock auto-suggestions, use Deepseek AI to extract ingredients from your favourite meals, shared lists, dark mode, and more for just ₦1,090/month</p>
+      <p className="text-xs text-muted-foreground mb-2">
+        Unlock unlimited AI recipe extraction (10 free uses remaining), shared lists, dark mode, and more for just ₦1,090/month
+      </p>
       
       <Button 
         onClick={handleUpgrade} 

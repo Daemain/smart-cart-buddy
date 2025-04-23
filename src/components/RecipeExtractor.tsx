@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Recipe } from '@/types/grocery';
 import { Button } from '@/components/ui/button';
@@ -22,6 +21,8 @@ interface RecipeExtractorProps {
   }[], recipeName: string) => void;
   isPremium: boolean;
 }
+
+const MAX_FREE_USES = 10;
 
 const recipeNameSchema = z.object({
   recipeName: z.string().min(1, 'Recipe name is required')
@@ -76,7 +77,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     }
   }, [showDescriptionInput]);
 
-  // Reset states when dialog is closed
   useEffect(() => {
     if (!open) {
       resetStates();
@@ -98,7 +98,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     setAnalysisMethod(null);
     form.reset();
     
-    // Stop any active camera stream
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject as MediaStream;
       if (stream) {
@@ -271,11 +270,11 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   };
 
   const handleExtract = async () => {
-    const freeUsesRemaining = 2 - usageCount;
-    if (!isPremium && usageCount >= 2) {
+    const freeUsesRemaining = MAX_FREE_USES - usageCount;
+    if (!isPremium && usageCount >= MAX_FREE_USES) {
       toast({
-        title: "Free Tries Used",
-        description: `You've used your ${usageCount} free recipe extractions. Upgrade to premium for unlimited use.`,
+        title: "Free Uses Exhausted",
+        description: `You've used your ${MAX_FREE_USES} free recipe extractions. Upgrade to premium for unlimited use.`,
         variant: "destructive"
       });
       setOpen(false);
@@ -309,13 +308,10 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
     try {
       let ingredients;
       
-      // For text-based extraction
       if (hasText) {
         ingredients = await extractIngredientsWithAI(recipeText);
         console.log("Extracted ingredients from text:", ingredients);
-      }
-      // For image-based extraction
-      else if (hasImage) {
+      } else if (hasImage) {
         ingredients = await extractIngredientsWithAI('', imageBase64, userDescription);
         console.log("Extracted ingredients from image:", ingredients);
       }
@@ -332,7 +328,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
         return;
       }
       
-      // Success path
       if (!isPremium) {
         const newCount = usageCount + 1;
         setUsageCount(newCount);
@@ -385,7 +380,6 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
   const onSubmitRecipeName = (values: RecipeNameFormValues) => {
     onExtractComplete(extractedIngredients, values.recipeName);
     setOpen(false);
-    // No need to reset states here as the useEffect will handle it when 'open' changes
   };
 
   const clearImage = () => {
@@ -456,13 +450,13 @@ const RecipeExtractor: React.FC<RecipeExtractorProps> = ({
             <DialogHeader className="my-[8px]">
               <DialogTitle className="text-base">Extract Ingredients from Food Images</DialogTitle>
               <DialogDescription className="font-light text-sm">
-                {!isPremium && usageCount >= 2 ? 
-                  "You've used your free recipe extractions. Upgrade to premium for unlimited use." : 
+                {!isPremium && usageCount >= MAX_FREE_USES ? 
+                  `You've used your ${MAX_FREE_USES} free recipe extractions. Upgrade to premium for unlimited use.` : 
                   "Take a clear photo of your food or enter a recipe to extract ingredients"}
               </DialogDescription>
             </DialogHeader>
             
-            {!isPremium && usageCount >= 2 ? (
+            {!isPremium && usageCount >= MAX_FREE_USES ? (
               <div className="flex flex-col items-center justify-center py-6">
                 <ChefHat className="h-12 w-12 text-muted-foreground mb-2" />
                 <p className="text-center text-muted-foreground">
