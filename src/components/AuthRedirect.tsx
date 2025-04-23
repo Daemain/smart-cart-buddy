@@ -1,14 +1,27 @@
 
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 
 const AuthRedirect: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // This component handles the redirect after OAuth authentication
     const handleAuthRedirect = async () => {
+      // Check if this is a password reset flow
+      const url = new URL(window.location.href);
+      const type = url.searchParams.get('type');
+      
+      console.log('Auth redirect detected:', { type });
+      
+      if (type === 'recovery') {
+        // Redirect to auth page with recovery type preserved
+        navigate('/auth?type=recovery', { replace: true });
+        return;
+      }
+      
       const { data, error } = await supabase.auth.getSession();
       
       if (data.session) {
@@ -24,7 +37,7 @@ const AuthRedirect: React.FC = () => {
     };
 
     handleAuthRedirect();
-  }, [navigate]);
+  }, [navigate, location]);
 
   return (
     <div className="min-h-screen flex items-center justify-center">

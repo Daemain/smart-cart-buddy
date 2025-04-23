@@ -42,6 +42,8 @@ const Auth = () => {
       const searchParams = new URLSearchParams(window.location.search);
       const type = searchParams.get('type');
       
+      console.log('Auth page loaded with query params:', Object.fromEntries(searchParams.entries()));
+      
       // If it's a recovery flow, show the new password form
       if (type === 'recovery') {
         setIsNewPasswordForm(true);
